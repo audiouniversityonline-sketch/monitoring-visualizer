@@ -45,3 +45,7 @@ Edit `index.html`, push to `main`, then bump `?v=N` in the iframe `src` on the C
 ## Keyboard
 
 Number keys 1 to 9 jump between demos. F toggles fullscreen. P hides the demo menu.
+
+## Phones
+
+Screens 760px wide or narrower show a "Open this on a computer" message instead of the demos. Tablets and wider screens get the full visualizer.

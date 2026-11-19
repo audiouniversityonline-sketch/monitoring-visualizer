@@ -135,6 +135,17 @@ body.present { grid-template-columns: 1fr; }
   #viz .stat .k { font-size: 11.5px; white-space: nowrap; }
 }
 @media (max-height: 820px) and (min-width: 901px) { main { gap: 7px; padding: 10px 16px 8px; } h1 { font-size: 30px; } .controls { padding: 7px 10px; gap: 6px 16px; } .ctl { gap: 3px; } .stat { padding: 4px 10px; } .stat .v { font-size: 22px; } .stat .k { font-size: 12px; } .card { padding: 6px 10px; } .card h2 { font-size: 14px; margin-bottom: 3px; } .legend { font-size: 13px; margin-bottom: 3px; } .src { font-size: 11.5px; } canvas.short { height: 110px; } .btn { padding: 4px 9px; font-size: 13px; } input[type=range] { width: 150px; } .ctl { min-width: 120px; } body { grid-template-columns: 210px 1fr; } nav a { font-size: 13.5px; padding: 6px 8px; } }
+.desk-only { display: none; }
+@media (max-width: 760px) {
+  .desk-only { display: flex; position: fixed; inset: 0; z-index: 200; background: var(--bg); align-items: center; justify-content: center; padding: 28px; text-align: center; }
+  .desk-only .box { max-width: 340px; }
+  .desk-only .ico { width: 64px; height: 44px; margin: 0 auto 18px; border: 3px solid var(--accent); border-radius: 6px; position: relative; }
+  .desk-only .ico::after { content: ""; position: absolute; left: 50%; bottom: -12px; width: 30px; height: 3px; margin-left: -15px; background: var(--accent); }
+  .desk-only h2 { font-size: 24px; font-weight: 800; margin: 0 0 10px; color: var(--ink); }
+  .desk-only p { font-size: 16px; line-height: 1.5; color: var(--muted); margin: 0; }
+  body > nav, body > main, body > .gate { display: none !important; }
+  body { overflow: hidden; }
+}
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
 </head>
@@ -154,6 +165,13 @@ body.present { grid-template-columns: 1fr; }
     <div class="err" id="gate-err"></div>
     <button class="go" id="gate-go">Open all nine demos</button>
     <p class="fine">Already an Audio University member? <a href="https://community.audiouniversityonline.com/c/resources/monitoring-visualizer" target="_top">Open it from Resources</a>.</p>
+  </div>
+</div>
+<div class="desk-only" role="note">
+  <div class="box">
+    <div class="ico" aria-hidden="true"></div>
+    <h2>Open this on a computer</h2>
+    <p>The Monitoring Visualizer is built for desktop screens. Visit this page on a laptop or desktop computer to explore all nine demos.</p>
   </div>
 </div>
 <script>
@@ -1229,8 +1247,14 @@ function mobileLayout() {
   new MutationObserver(update).observe(box, { subtree: true, attributes: true, attributeFilter: ["style"] });
 }
 let mqLast = MQ.matches;
-window.addEventListener("resize", () => { if (MQ.matches !== mqLast) { mqLast = MQ.matches; show(); } });
+const DESK_ONLY = window.matchMedia("(max-width: 760px)");
+let dqLast = DESK_ONLY.matches;
+window.addEventListener("resize", () => {
+  if (DESK_ONLY.matches !== dqLast) { dqLast = DESK_ONLY.matches; mqLast = MQ.matches; show(); return; }
+  if (MQ.matches !== mqLast) { mqLast = MQ.matches; show(); }
+});
 function show() {
+  if (DESK_ONLY.matches) { if (current) audioStop(); current = null; mainEl.innerHTML = ""; return; }
   const id = (location.hash || "").slice(1), d = DEMOS.find(x => x.id === id) || DEMOS[0];
   if (!gatePassed) {
     if (gateFirstId === null) gateFirstId = d.id;
