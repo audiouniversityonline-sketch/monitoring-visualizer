@@ -1,15 +1,16 @@
 <!--
-  CIRCLE EMBED: paste into the Custom HTML block on the members-only Monitoring Visualizer page.
-  Same pattern as the Troubleshooting Lab page:
-    - The wrapper breaks out of Circle's content column to the full browser width (100vw).
-    - The iframe is 88vh tall, so the Circle header stays visible above it. The visualizer
-      fills whatever height it is given, so every demo fits on one screen with no page scroll.
-    - Below 900 px wide (phones) the demos stack and scroll inside the frame.
+  CIRCLE EMBED: the Custom HTML block on the members-only Monitoring Visualizer page.
+    - Width 100% of Circle's content area. Circle pages already run the content area
+      edge to edge beside the left icon rail, so no full-bleed trick is needed. (The
+      100vw trick centers on the whole window, which pushes 30 px past each edge
+      because of the 60 px rail.)
+    - Height 88vh, so Circle's header stays visible. The visualizer fills whatever
+      height it is given, so every demo fits on one screen on desktop.
+    - On phones the visualizer switches to a dropdown menu and stacked panels that
+      scroll inside the frame.
     - allow="fullscreen" lets members press F to fill the screen.
   On every update to index.html, bump ?v=N so members load the new version instead of a cached copy.
 -->
-<div style="position:relative; left:50%; width:100vw; margin-left:-50vw; overflow-x:hidden;">
-  <iframe src="https://audiouniversityonline-sketch.github.io/monitoring-visualizer/?v=2"
-    style="width:100%; height:88vh; border:0;"
-    allow="fullscreen" allowfullscreen title="Monitoring Concepts Visualizer"></iframe>
-</div>
+<iframe src="https://audiouniversityonline-sketch.github.io/monitoring-visualizer/?v=3"
+  style="display:block; width:100%; height:88vh; border:0;"
+  allow="fullscreen" allowfullscreen title="Monitoring Concepts Visualizer"></iframe>

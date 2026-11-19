@@ -78,6 +78,27 @@ canvas.click { cursor: pointer; }
 body.present nav { display: none; }
 body.present { grid-template-columns: 1fr; }
 @media (max-width: 900px) { body { display: block; height: auto; } html { height: auto; } nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); } nav .foot { display: none; } .stage.two { grid-template-columns: 1fr; } main { overflow: visible; height: auto; } main > .stage, main > .card.grow { flex: none; } .stage { grid-template-rows: auto; } .stage > .card { min-height: 0; } canvas { flex: none; height: 380px; } canvas.short { height: 220px; } }
+/* Phones and narrow embeds: a dropdown replaces the demo list, readouts sit two to a row, every stage stacks */
+#navsel { display: none; }
+@media (max-width: 900px) {
+  nav { padding: 12px 14px; gap: 8px; flex-direction: column !important; align-items: stretch; }
+  nav a { display: none; }
+  nav .brand { font-size: 20px; }
+  #navsel { display: block; width: 100%; max-width: none; box-sizing: border-box; font: inherit; font-size: 16px; color: var(--ink); background: #1b1b1b; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  main { padding: 14px 12px 16px; gap: 10px; }
+  h1 { font-size: 26px; line-height: 1.12; }
+  .stage, .stage[style] { grid-template-columns: 1fr !important; }
+  .readout { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat, .fixed-stats .stat { min-width: 0; width: auto; padding: 6px 10px; }
+  .stat .v { font-size: 22px; overflow-wrap: anywhere; }
+  .stat .v { white-space: normal; }
+  .stat .v small { font-size: 13px; }
+  .stat .k { font-size: 12.5px; }
+  .controls { padding: 10px; }
+  input[type=range] { width: 100%; }
+  .ctl { min-width: 0; }
+  canvas, canvas.tall { height: 340px; }
+}
 @media (max-height: 820px) and (min-width: 901px) { main { gap: 7px; padding: 10px 16px 8px; } h1 { font-size: 30px; } .controls { padding: 7px 10px; gap: 6px 16px; } .ctl { gap: 3px; } .stat { padding: 4px 10px; } .stat .v { font-size: 22px; } .stat .k { font-size: 12px; } .card { padding: 6px 10px; } .card h2 { font-size: 14px; margin-bottom: 3px; } .legend { font-size: 13px; margin-bottom: 3px; } .src { font-size: 11.5px; } canvas.short { height: 110px; } .btn { padding: 4px 9px; font-size: 13px; } input[type=range] { width: 150px; } .ctl { min-width: 120px; } body { grid-template-columns: 210px 1fr; } nav a { font-size: 13.5px; padding: 6px 8px; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
@@ -767,19 +788,20 @@ DEMOS.push({
     <div class="card grow"><h2>Absorption coefficient by octave band</h2><canvas id="ab-plot" class="tall"></canvas></div>`,
   sel() { return [...document.querySelectorAll("#ab-checks input:checked")].map(i => i.value); },
   draw() {
-    const P = prep($("ab-plot")), c = P.c, L = 58, R = 230, T = 16, B = 58;
+    const P = prep($("ab-plot")), c = P.c, narrow = P.w < 560, L = narrow ? 40 : 58, R = narrow ? 12 : 230, T = 16, B = narrow ? 50 : 58;
     const X = i => L + (i + 0.5) * (P.w - L - R) / 6, Y = v => T + (1 - v / 1.3) * (P.h - T - B);
     c.fillStyle = "rgba(154,161,173,.08)"; c.fillRect(L, Y(1.3), P.w - L - R, Y(1.0) - Y(1.3));
-    c.fillStyle = COL.muted; c.textAlign = "left"; c.fillText("Above 1.0: lab edge effect", L + 8, Y(1.1));
+    c.fillStyle = COL.muted; c.textAlign = "left"; if (!narrow) c.fillText("Above 1.0: lab edge effect", L + 8, Y(1.1));
     c.strokeStyle = COL.line; c.textAlign = "right";
     [0, .2, .4, .6, .8, 1, 1.2].forEach(v => { c.lineWidth = v === 1 || v === 0 ? 2 : 1; c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(P.w - R, Y(v)); c.stroke(); c.fillStyle = COL.muted; c.fillText(v.toFixed(1), L - 8, Y(v)); });
-    c.fillStyle = COL.muted; c.textAlign = "left"; c.fillText("Absorbs everything", L + 8, Y(1) + 14); c.textAlign = "right"; c.fillText("Reflects everything", P.w - R - 8, Y(0) - 14);
-    BANDS.forEach((f, i) => { c.fillStyle = COL.ink; c.textAlign = "center"; c.font = FONTB; c.fillText(fmtHz(f) + " Hz", X(i), P.h - B + 18); c.font = FONT; }); c.fillStyle = COL.muted; c.textAlign = "center"; c.fillText("Octave band", (L + P.w - R) / 2, P.h - B + 40);
+    c.fillStyle = COL.muted; c.textAlign = "left"; if (!narrow) c.fillText("Absorbs everything", L + 8, Y(1) + 14); c.textAlign = "right"; c.fillText("Reflects everything", P.w - R - 8, Y(0) - 14);
+    BANDS.forEach((f, i) => { c.fillStyle = COL.ink; c.textAlign = "center"; c.font = FONTB; c.fillText(fmtHz(f) + (narrow ? "" : " Hz"), X(i), P.h - B + 18); c.font = FONT; }); c.fillStyle = COL.muted; c.textAlign = "center"; c.fillText("Octave band", (L + P.w - R) / 2, P.h - B + 40);
     const sel = this.sel();
     sel.forEach(k => { const m = MAT[k]; c.strokeStyle = m.col; c.fillStyle = m.col; c.lineWidth = 4; c.beginPath();
       m.a.forEach((v, i) => i ? c.lineTo(X(i), Y(v)) : c.moveTo(X(i), Y(v))); c.stroke();
       m.a.forEach((v, i) => { c.beginPath(); c.arc(X(i), Y(v), 5.5, 0, 7); c.fill(); }); });
-    // direct labels at the right end, spread so they don't overlap
+    // direct labels at the right end, spread so they don't overlap (on phones the colored checkboxes are the key)
+    if (narrow) return;
     const labs = sel.map(k => ({ k, y: Y(MAT[k].a[5]) })).sort((a, b) => a.y - b.y);
     for (let n = 1; n < labs.length; n++) if (labs[n].y - labs[n - 1].y < 26) labs[n].y = labs[n - 1].y + 26;
     labs.forEach(({ k, y }) => { const m = MAT[k]; c.strokeStyle = m.col; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X(5) + 8, Y(m.a[5])); c.lineTo(X(5) + 24, y); c.stroke(); pill(c, m.name, X(5) + 26, y, m.col); });
@@ -920,7 +942,7 @@ DEMOS.push({
     const ref = refIdx[Math.floor(refIdx.length / 2)];
     const lss = fs.map((f, i) => { const w = clampv((f - 250) / 200, 0, 1); return (1 - w) * clampv(modal[i] - ref, -25, 20); });
     const P = prep($("dc-fall")), c = P.c, slices = 30, tmax = Math.max(...this.rt(0, m)) * 0.9;
-    const L0 = 90, R0 = 110, B0 = 46, dx = (P.w - L0 - R0) * 0.3 / slices, dy = (P.h - B0 - 30) * 0.5 / slices;
+    const narrow = P.w < 560, L0 = narrow ? 58 : 90, R0 = narrow ? 56 : 110, B0 = 46, dx = (P.w - L0 - R0) * 0.3 / slices, dy = (P.h - B0 - 30) * 0.5 / slices;
     const pw = P.w - L0 - R0 - dx * slices, ph = (P.h - B0 - 30) - dy * slices;
     const X = (f, s) => L0 + Math.log10(f / 30) / Math.log10(8000 / 30) * pw + s * dx, Y = (v, s) => P.h - B0 - (v + 50) / 70 * ph - s * dy;
     for (let q = 0; q < slices; q++) {
@@ -933,14 +955,14 @@ DEMOS.push({
       c.strokeStyle = q === 0 ? COL.accent : `rgba(0,255,136,${0.3 + 0.6 * fade})`; c.lineWidth = q === 0 ? 3 : 1.5; c.stroke();
     }
     c.fillStyle = COL.muted; c.textAlign = "center";
-    [30, 50, 100, 200, 500, 1000, 2000, 5000].forEach(f => c.fillText(fmtHz(f) + (f === 30 ? " Hz" : ""), X(f, 0), P.h - B0 + 16));
+    (narrow ? [30, 100, 500, 2000] : [30, 50, 100, 200, 500, 1000, 2000, 5000]).forEach(f => c.fillText(fmtHz(f) + (f === 30 ? " Hz" : ""), X(f, 0), P.h - B0 + 16));
     c.textAlign = "right"; c.fillText("0 dB at the start", X(30, slices - 1) - 8, Y(0, slices - 1));
     c.fillText("Frequency", L0 + pw / 2, P.h - 10);
     c.textAlign = "right"; [-20, -40].forEach(v => c.fillText(v + " dB", L0 - 8, Y(v, 0)));
     c.strokeStyle = COL.muted; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X(8000, 0) + 6, Y(-50, 0)); c.lineTo(X(8000, slices - 1) + 6, Y(-50, slices - 1)); c.stroke();
     c.textAlign = "left"; c.fillStyle = COL.muted;
-    for (let q = 0; q < slices; q += 6) { const s = slices - 1 - q, t = tmax * q / (slices - 1); c.fillText((t * 1000).toFixed(0) + " ms", X(8000, s) + 12, Y(-50, s)); }
-    c.textAlign = "left"; c.fillText("Time after the sound stops", X(8000, 0) + 12, Y(-50, 0) + 26);
+    for (let q = 0; q < slices; q += (narrow ? 12 : 6)) { const s = slices - 1 - q, t = tmax * q / (slices - 1); c.fillText((t * 1000).toFixed(0) + " ms", X(8000, s) + 12, Y(-50, s)); }
+    c.textAlign = narrow ? "right" : "left"; c.fillText(narrow ? "Time after the sound stops ↗" : "Time after the sound stops", narrow ? P.w - 4 : X(8000, 0) + 12, narrow ? P.h - 10 : Y(-50, 0) + 26);
     if (n > 0 && tr[0] > 1.6 * tr[4]) pill(c, "Bass still ringing", X(70, slices - 1), Y(14, slices - 1) - 18, COL.accent, "center");
   },
   init() {
@@ -1091,10 +1113,14 @@ const nav = $("nav"), mainEl = $("main"); let current = null;
 const ORDER = ["aim", "sbir", "modes", "driving", "comb", "quarter", "absorb", "decay", "corner"];
 DEMOS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 DEMOS.forEach((d, i) => { const a = document.createElement("a"); a.href = "#" + d.id; a.innerHTML = `<span class="n">${i + 1}</span><span>${d.title}</span>`; a.dataset.id = d.id; nav.insertBefore(a, nav.querySelector(".foot")); });
+const navsel = document.createElement("select"); navsel.id = "navsel"; navsel.setAttribute("aria-label", "Choose a demo");
+DEMOS.forEach((d, i) => { const o = document.createElement("option"); o.value = d.id; o.textContent = (i + 1) + ". " + d.title; navsel.appendChild(o); });
+navsel.onchange = () => { location.hash = navsel.value; };
+nav.insertBefore(navsel, nav.querySelector(".foot"));
 function show() {
   const id = (location.hash || "").slice(1), d = DEMOS.find(x => x.id === id) || DEMOS[0];
   if (current && current !== d) audioStop();
-  current = d; loadCols();
+  current = d; loadCols(); navsel.value = d.id;
   nav.querySelectorAll("a").forEach(a => { if (a.dataset.id === d.id) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
   mainEl.innerHTML = `<h1>${d.title}</h1>` + d.html() + `<p class="src"><b>${d.srcLabel || "Sources"}:</b> ${d.src}</p>`;
   syncOutputs(mainEl);

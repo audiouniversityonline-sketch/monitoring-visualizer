@@ -20,7 +20,9 @@ Embedded in an iframe on a members-only Circle page. The page itself is public t
 
 ## Circle embed
 
-Same pattern as the Troubleshooting Lab page. The Custom HTML block wraps the iframe in a div that breaks out of Circle's content column to the full browser width (`left:50%; width:100vw; margin-left:-50vw`), and the iframe is `88vh` tall so Circle's header stays visible. The visualizer fills whatever height it is given (the same layout used on camera), so every demo fits on one screen. Below 900 px wide the demos stack and scroll inside the frame.
+The Custom HTML block is a plain iframe at `width:100%; height:88vh`. Circle pages already run the content area edge to edge beside the 60 px left icon rail, so the full-bleed `100vw` wrapper used on the Troubleshooting Lab page is not used here: it centers on the whole window and pushes about 30 px past each edge. The visualizer fills whatever height it is given (the same layout used on camera), so every demo fits on one screen on desktop.
+
+Below 900 px wide (phones, narrow windows) the demo list becomes a dropdown, readouts sit two to a row, every two-panel stage stacks, and the Absorption and Waterfall charts use tighter margins. The page scrolls inside the frame.
 
 Fullscreen (F key) works inside the iframe because the embed sets `allow="fullscreen"`.
 
