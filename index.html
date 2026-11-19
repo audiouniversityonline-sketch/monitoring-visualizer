@@ -1146,7 +1146,7 @@ DEMOS.forEach((d, i) => { const a = document.createElement("a"); a.href = "#" + 
 // The gate lives in localStorage, so it is friction for a lead magnet, not access control.
 // KIT_FORM_ID is the NUMERIC id from https://app.kit.com/forms/<id>/subscriptions. Blank it and the gate
 // still works (remembers locally, lets people in); it just stops posting to Kit.
-const KIT_FORM_ID = "";
+const KIT_FORM_ID = "10215230"; // Kit form "Monitoring Visualizer"
 const GATE_KEY = "mv_subscribed";
 const MV_Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(""); } })();
 const MV_MEMBER = MV_Q.get("tier") === "member", MV_OPTED = MV_Q.get("optedin") === "1";
