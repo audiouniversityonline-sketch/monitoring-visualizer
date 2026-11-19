@@ -112,21 +112,22 @@ body.present { grid-template-columns: 1fr; }
   .ctl { min-width: 0; }
   canvas, canvas.tall { height: 340px; }
 }
-/* Phones: the chart stays pinned at the top while the controls scroll underneath it */
+/* Phones: the charts stay pinned at the top while the controls scroll underneath them */
 #viz { display: none; }
 @media (max-width: 900px) {
   #viz { display: block; position: sticky; top: 0; z-index: 20; background: var(--bg); margin: 0 -12px; padding: 8px 12px 8px; border-bottom: 1px solid var(--line); box-shadow: 0 8px 14px rgba(0,0,0,.55); }
-  .viztabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 6px; scrollbar-width: none; }
-  .viztabs[hidden] { display: none; }
-  .viztabs .btn { flex: 0 0 auto; white-space: nowrap; font-size: 13px; padding: 5px 10px; }
-  #viz .stage { gap: 0; }
+  #viz .stage { gap: 6px; }
+  #viz .vizbox { display: flex; flex-direction: column; gap: 6px; }
   #viz .card { padding: 6px 8px; }
-  #viz .card.mob-off { display: none !important; }
-  #viz .viztabs:not([hidden]) + .vizbox .card > h2 { display: none; }
-  #viz .legend { font-size: 12px; margin-bottom: 2px; }
+  #viz .card > h2 { font-size: 12px; margin-bottom: 2px; }
+  #viz .legend { font-size: 12px; margin-bottom: 2px; gap: 2px 10px; }
   #viz canvas, #viz canvas.tall { height: clamp(190px, 33vh, 320px); }
-  #viz canvas.short { height: clamp(120px, 18vh, 170px); }
+  #viz canvas.short { height: clamp(110px, 16vh, 160px); }
   #viz #dm-room { height: clamp(300px, 42vh, 360px); }
+  #viz.multi canvas, #viz.multi canvas.tall { height: clamp(130px, 20vh, 210px); }
+  #viz.multi canvas.short { height: clamp(90px, 12vh, 130px); }
+  #viz.multi #rm-map { height: clamp(190px, 28vh, 270px); }
+  #viz.multi #cr-room, #viz.multi #cr-zoom { height: clamp(165px, 24vh, 230px); }
   #viz .readout { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin-top: 6px; scrollbar-width: none; }
   #viz .readout:empty { display: none; }
   #viz .stat, #viz .fixed-stats .stat { flex: 0 0 auto; width: auto; min-width: 0; padding: 4px 9px; }
@@ -675,7 +676,9 @@ DEMOS.push({
       g.fillStyle = `rgb(${Math.round(42 + 213 * val)},${Math.round(46 + 76 * val)},${Math.round(55 + 52 * val)})`; g.fillRect(x0 + a * cw, y0 + b * chh, cw + .6, chh + .6);
     }
     g.strokeStyle = "#929292"; g.lineWidth = 4; g.strokeRect(x0, y0, rw, rh);
-    g.fillStyle = COL.muted; g.textAlign = "left"; g.fillText("Front wall", x0, y0 + rh + 20); g.textAlign = "right"; g.fillText("Back wall", x0 + rw, y0 + rh + 20);
+    g.fillStyle = COL.muted;
+    if (rw < 200) { g.textAlign = "right"; g.fillText("Front wall", x0 - 6, y0 + rh + 20); g.textAlign = "left"; g.fillText("Back wall", x0 + rw + 6, y0 + rh + 20); }
+    else { g.textAlign = "left"; g.fillText("Front wall", x0, y0 + rh + 20); g.textAlign = "right"; g.fillText("Back wall", x0 + rw, y0 + rh + 20); }
     g.textAlign = "center"; g.fillText("Length " + num("rm-l") + " ft", x0 + rw / 2, y0 - 16);
     g.save(); g.translate(x0 - 18, y0 + rh / 2); g.rotate(-Math.PI / 2); g.fillText((side ? "Height " + num("rm-h") : "Width " + num("rm-w")) + " ft", 0, 0); g.restore();
     const lx = x0 + 0.38 * rw;
@@ -1131,7 +1134,7 @@ DEMOS.push({
     c.save(); c.translate(X(0) - 18, Y(rh / 2)); c.rotate(-Math.PI / 2); c.fillText("Front wall", 0, 0); c.restore();
     c.fillText(zoom ? "Side wall" : "Side wall · 13 ft", X(rw / 2), Y(0) - 18);
     if (!zoom) { c.textAlign = "left"; c.fillText("11 ft", X(CR.L) + 12, Y(CR.W / 2)); }
-    else for (let f = 1; f <= 4; f++) c.fillText(f + " ft", X(f), Y(rh) + 16);
+    else for (let f = 1; f <= 4; f++) { if (X(4) - X(1) < 150 && f % 2) continue; c.fillText(f + " ft", X(f), Y(rh) + 16); }
     if (zoom) pill(c, sp.name, X(rw) - 8, Y(rh) - 20, COL.good, "right");
     else if (!m.ijk) pill(c, "Average of every mode up to 120 Hz", X(rw) - 8, Y(rh) - 20, COL.ink, "right");
     else if (this.view === "p") pill(c, "Most pressure in the corners", X(0) + 10, Y(rh) - 20, COL.pressure);
@@ -1206,38 +1209,24 @@ navsel.onchange = () => { location.hash = navsel.value; };
 nav.insertBefore(navsel, nav.querySelector(".foot"));
 // ---------- phone layout ----------
 // Below 900 px the demo's charts and readouts move into a sticky panel at the top (#viz), so the
-// effect of every control stays in view while the controls scroll underneath. Demos with more
-// than one chart get tabs. Nodes are moved, not copied, so ids and handlers keep working.
+// effect of every control stays in view while the controls scroll underneath. When a demo has two
+// charts (for example the top view and what reaches your ears) both stay visible, stacked and
+// shorter, because the point is seeing how one relates to the other. Nodes are moved, not copied,
+// so ids and handlers keep working.
 const MQ = window.matchMedia("(max-width: 900px)");
 function mobileLayout() {
   if (!MQ.matches) return;
   const h1 = mainEl.querySelector("h1"); if (!h1) return;
   const viz = document.createElement("div"); viz.id = "viz";
-  const tabs = document.createElement("div"); tabs.className = "viztabs"; tabs.setAttribute("role", "tablist");
-  const box = document.createElement("div"); box.className = "vizbox";
-  viz.appendChild(tabs); viz.appendChild(box);
+  const box = document.createElement("div"); box.className = "vizbox"; viz.appendChild(box);
   [...mainEl.children].filter(e => e !== h1 && e.querySelector("canvas")).forEach(e => box.appendChild(e));
   [...mainEl.children].filter(e => e.classList.contains("readout")).forEach(e => viz.appendChild(e));
   h1.after(viz);
-  let active = 0, sig = "";
-  const cards = () => [...box.querySelectorAll(".card")].filter(c => c.querySelector("canvas") && c.style.display !== "none");
-  const render = (force) => {
-    const cs = cards(); if (active >= cs.length) active = 0;
-    const s = cs.map(c => { const h = c.querySelector("h2"); return h ? h.textContent : "?"; }).join("|") + "#" + active;
-    if (!force && s === sig) return; sig = s;
-    tabs.innerHTML = ""; tabs.hidden = cs.length < 2;
-    box.querySelectorAll(".card").forEach(c => c.classList.remove("mob-off"));
-    cs.forEach((c, i) => {
-      if (i !== active) c.classList.add("mob-off");
-      const b = document.createElement("button"); b.className = "btn"; b.setAttribute("role", "tab");
-      b.setAttribute("aria-pressed", String(i === active));
-      const h = c.querySelector("h2"); b.textContent = h ? h.textContent : "View " + (i + 1);
-      b.onclick = () => { active = i; render(true); requestAnimationFrame(() => current && current.draw()); };
-      tabs.appendChild(b);
-    });
-  };
-  render(true);
-  new MutationObserver(() => render(false)).observe(box, { subtree: true, attributes: true, attributeFilter: ["style"], characterData: true, childList: true });
+  const count = () => [...box.querySelectorAll(".card")].filter(c => c.querySelector("canvas") && c.style.display !== "none").length;
+  let last = -1;
+  const update = () => { const n = count(); if (n === last) return; last = n; viz.classList.toggle("multi", n > 1); requestAnimationFrame(() => current && current.draw()); };
+  update();
+  new MutationObserver(update).observe(box, { subtree: true, attributes: true, attributeFilter: ["style"] });
 }
 let mqLast = MQ.matches;
 window.addEventListener("resize", () => { if (MQ.matches !== mqLast) { mqLast = MQ.matches; show(); } });
