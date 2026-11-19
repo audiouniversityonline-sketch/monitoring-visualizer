@@ -112,6 +112,27 @@ body.present { grid-template-columns: 1fr; }
   .ctl { min-width: 0; }
   canvas, canvas.tall { height: 340px; }
 }
+/* Phones: the chart stays pinned at the top while the controls scroll underneath it */
+#viz { display: none; }
+@media (max-width: 900px) {
+  #viz { display: block; position: sticky; top: 0; z-index: 20; background: var(--bg); margin: 0 -12px; padding: 8px 12px 8px; border-bottom: 1px solid var(--line); box-shadow: 0 8px 14px rgba(0,0,0,.55); }
+  .viztabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 6px; scrollbar-width: none; }
+  .viztabs[hidden] { display: none; }
+  .viztabs .btn { flex: 0 0 auto; white-space: nowrap; font-size: 13px; padding: 5px 10px; }
+  #viz .stage { gap: 0; }
+  #viz .card { padding: 6px 8px; }
+  #viz .card.mob-off { display: none !important; }
+  #viz .viztabs:not([hidden]) + .vizbox .card > h2 { display: none; }
+  #viz .legend { font-size: 12px; margin-bottom: 2px; }
+  #viz canvas, #viz canvas.tall { height: clamp(190px, 33vh, 320px); }
+  #viz canvas.short { height: clamp(120px, 18vh, 170px); }
+  #viz #dm-room { height: clamp(300px, 42vh, 360px); }
+  #viz .readout { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin-top: 6px; scrollbar-width: none; }
+  #viz .readout:empty { display: none; }
+  #viz .stat, #viz .fixed-stats .stat { flex: 0 0 auto; width: auto; min-width: 0; padding: 4px 9px; }
+  #viz .stat .v { font-size: 18px; white-space: nowrap; }
+  #viz .stat .k { font-size: 11.5px; white-space: nowrap; }
+}
 @media (max-height: 820px) and (min-width: 901px) { main { gap: 7px; padding: 10px 16px 8px; } h1 { font-size: 30px; } .controls { padding: 7px 10px; gap: 6px 16px; } .ctl { gap: 3px; } .stat { padding: 4px 10px; } .stat .v { font-size: 22px; } .stat .k { font-size: 12px; } .card { padding: 6px 10px; } .card h2 { font-size: 14px; margin-bottom: 3px; } .legend { font-size: 13px; margin-bottom: 3px; } .src { font-size: 11.5px; } canvas.short { height: 110px; } .btn { padding: 4px 9px; font-size: 13px; } input[type=range] { width: 150px; } .ctl { min-width: 120px; } body { grid-template-columns: 210px 1fr; } nav a { font-size: 13.5px; padding: 6px 8px; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
@@ -710,13 +731,15 @@ DEMOS.push({
     <div class="stage"><div class="card"><h2>First four length modes, side view</h2><div class="legend"><span><i style="background:var(--pressure)"></i>How strongly the speaker drives each mode</span><span><i class="dash" style="color:#a3a3a3"></i>Fully driven</span><span><i style="background:var(--velocity)"></i>You, and how much of each mode you hear</span></div><canvas id="dm-room" class="tall"></canvas></div></div>`,
   draw() {
     const L = num("dm-l") * FT, xs = num("dm-s"), xl = num("dm-x");
-    const G = prep($("dm-room")), c = G.c, l = 150, r = G.w - 18, rowH = (G.h - 96) / 4;
+    const G = prep($("dm-room")), c = G.c, l = G.w < 520 ? 118 : 150, r = G.w - 18, rowH = (G.h - 96) / 4;
     for (let n = 1; n <= 4; n++) {
       const top = 14 + rowH * (n - 1), full = rowH * 0.72, base = top + rowH * 0.86, ps = Math.abs(Math.cos(n * Math.PI * xs)), amp = full * ps;
       const pl = Math.abs(Math.cos(n * Math.PI * xl)), y1 = top + rowH * 0.22;
-      c.fillStyle = COL.ink; c.textAlign = "left"; c.font = FONTB; c.fillText("Mode " + n + " · " + Math.round(n * C / (2 * L)) + " Hz", 6, y1); c.font = FONT;
-      c.fillStyle = ps > 0.9 ? COL.pressure : COL.muted; c.fillText("Driven " + Math.round(ps * 100) + "%", 6, y1 + 19);
-      c.fillStyle = ps * pl < 0.1 ? COL.velocity : COL.muted; c.fillText("Heard " + Math.round(ps * pl * 100) + "%", 6, y1 + 38);
+      // Short rows (phones): smaller type and tighter line spacing so the three label lines stay inside their row
+      const tight = rowH < 72, fs = tight ? 12 : 15, lh = tight ? Math.min(15, rowH / 3.4) : 19, ly = tight ? top + fs * 0.7 : y1;
+      c.fillStyle = COL.ink; c.textAlign = "left"; c.font = FONTB.replace("15px", fs + "px"); c.fillText("Mode " + n + " · " + Math.round(n * C / (2 * L)) + " Hz", 6, ly); c.font = FONT.replace("15px", fs + "px");
+      c.fillStyle = ps > 0.9 ? COL.pressure : COL.muted; c.fillText("Driven " + Math.round(ps * 100) + "%", 6, ly + lh);
+      c.fillStyle = ps * pl < 0.1 ? COL.velocity : COL.muted; c.fillText("Heard " + Math.round(ps * pl * 100) + "%", 6, ly + lh * 2); c.font = FONT;
       c.strokeStyle = "rgba(154,161,173,.5)"; c.setLineDash([4, 5]); c.lineWidth = 1.5; c.beginPath();
       for (let i = 0; i <= 240; i++) { const x = l + (r - l) * i / 240, v = Math.abs(Math.cos(n * Math.PI * i / 240)); i ? c.lineTo(x, base - full * v) : c.moveTo(x, base - full * v); }
       c.stroke(); c.setLineDash([]);
@@ -1181,6 +1204,43 @@ const navsel = document.createElement("select"); navsel.id = "navsel"; navsel.se
 DEMOS.forEach((d, i) => { const o = document.createElement("option"); o.value = d.id; o.textContent = (i + 1) + ". " + d.title; navsel.appendChild(o); });
 navsel.onchange = () => { location.hash = navsel.value; };
 nav.insertBefore(navsel, nav.querySelector(".foot"));
+// ---------- phone layout ----------
+// Below 900 px the demo's charts and readouts move into a sticky panel at the top (#viz), so the
+// effect of every control stays in view while the controls scroll underneath. Demos with more
+// than one chart get tabs. Nodes are moved, not copied, so ids and handlers keep working.
+const MQ = window.matchMedia("(max-width: 900px)");
+function mobileLayout() {
+  if (!MQ.matches) return;
+  const h1 = mainEl.querySelector("h1"); if (!h1) return;
+  const viz = document.createElement("div"); viz.id = "viz";
+  const tabs = document.createElement("div"); tabs.className = "viztabs"; tabs.setAttribute("role", "tablist");
+  const box = document.createElement("div"); box.className = "vizbox";
+  viz.appendChild(tabs); viz.appendChild(box);
+  [...mainEl.children].filter(e => e !== h1 && e.querySelector("canvas")).forEach(e => box.appendChild(e));
+  [...mainEl.children].filter(e => e.classList.contains("readout")).forEach(e => viz.appendChild(e));
+  h1.after(viz);
+  let active = 0, sig = "";
+  const cards = () => [...box.querySelectorAll(".card")].filter(c => c.querySelector("canvas") && c.style.display !== "none");
+  const render = (force) => {
+    const cs = cards(); if (active >= cs.length) active = 0;
+    const s = cs.map(c => { const h = c.querySelector("h2"); return h ? h.textContent : "?"; }).join("|") + "#" + active;
+    if (!force && s === sig) return; sig = s;
+    tabs.innerHTML = ""; tabs.hidden = cs.length < 2;
+    box.querySelectorAll(".card").forEach(c => c.classList.remove("mob-off"));
+    cs.forEach((c, i) => {
+      if (i !== active) c.classList.add("mob-off");
+      const b = document.createElement("button"); b.className = "btn"; b.setAttribute("role", "tab");
+      b.setAttribute("aria-pressed", String(i === active));
+      const h = c.querySelector("h2"); b.textContent = h ? h.textContent : "View " + (i + 1);
+      b.onclick = () => { active = i; render(true); requestAnimationFrame(() => current && current.draw()); };
+      tabs.appendChild(b);
+    });
+  };
+  render(true);
+  new MutationObserver(() => render(false)).observe(box, { subtree: true, attributes: true, attributeFilter: ["style"], characterData: true, childList: true });
+}
+let mqLast = MQ.matches;
+window.addEventListener("resize", () => { if (MQ.matches !== mqLast) { mqLast = MQ.matches; show(); } });
 function show() {
   const id = (location.hash || "").slice(1), d = DEMOS.find(x => x.id === id) || DEMOS[0];
   if (!gatePassed) {
@@ -1199,6 +1259,7 @@ function show() {
   syncOutputs(mainEl);
   mainEl.querySelectorAll("input[type=range], select").forEach(el => el.addEventListener("input", () => { syncOutputs(mainEl); d.draw(); }));
   if (d.init) d.init();
+  mobileLayout();
   d.draw();
 }
 window.addEventListener("hashchange", show);

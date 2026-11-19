@@ -34,7 +34,7 @@ The gate posts to the Kit form in `KIT_FORM_ID` (index.html) and remembers the v
 
 The Custom HTML block is a plain iframe at `width:100%; height:88vh`. Circle pages already run the content area edge to edge beside the 60 px left icon rail, so the full-bleed `100vw` wrapper used on the Troubleshooting Lab page is not used here: it centers on the whole window and pushes about 30 px past each edge. The visualizer fills whatever height it is given (the same layout used on camera), so every demo fits on one screen on desktop.
 
-Below 900 px wide (phones, narrow windows) the demo list becomes a dropdown, readouts sit two to a row, every two-panel stage stacks, and the Absorption and Waterfall charts use tighter margins. The page scrolls inside the frame.
+Below 900 px wide (phones, narrow windows) the demo's charts and readouts move into a panel pinned to the top of the screen (`#viz`, built by `mobileLayout()`), so the effect of every control stays in view while the controls scroll underneath. Demos with more than one chart get tabs to switch between them, and readouts become one swipeable row. The demo list becomes a dropdown, readouts sit two to a row, every two-panel stage stacks, and the Absorption and Waterfall charts use tighter margins. The page scrolls inside the frame.
 
 Fullscreen (F key) works inside the iframe because the embed sets `allow="fullscreen"`.
 
