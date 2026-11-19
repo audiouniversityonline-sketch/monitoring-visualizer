@@ -80,6 +80,19 @@ body.present { grid-template-columns: 1fr; }
 @media (max-width: 900px) { body { display: block; height: auto; } html { height: auto; } nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); } nav .foot { display: none; } .stage.two { grid-template-columns: 1fr; } main { overflow: visible; height: auto; } main > .stage, main > .card.grow { flex: none; } .stage { grid-template-rows: auto; } .stage > .card { min-height: 0; } canvas { flex: none; height: 380px; } canvas.short { height: 220px; } }
 /* Phones and narrow embeds: a dropdown replaces the demo list, readouts sit two to a row, every stage stacks */
 #navsel { display: none; }
+/* Email gate (free cold link only) */
+.gate { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.78); display: flex; align-items: center; justify-content: center; padding: 18px; }
+.gate[hidden] { display: none; }
+.gate .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; max-width: 440px; width: 100%; padding: 26px 24px 20px; position: relative; }
+.gate h2 { font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1.12; margin: 0 0 8px; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.gate p { color: var(--muted); font-size: 15px; line-height: 1.45; margin: 0 0 16px; }
+.gate input { display: block; width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; color: var(--ink); background: #0d0d0d; border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px; margin-bottom: 10px; outline: none; }
+.gate input.bad { border-color: #ff6b6b; }
+.gate .err { color: #ff6b6b; font-size: 13px; min-height: 18px; margin: -2px 0 6px; }
+.gate .go { display: block; width: 100%; font: inherit; font-weight: 600; font-size: 16px; color: #000; background: var(--accent); border: 0; border-radius: 8px; padding: 12px; cursor: pointer; }
+.gate .fine { color: var(--muted); font-size: 13px; margin: 14px 0 0; }
+.gate .fine a { color: var(--accent); }
+.gate .x { position: absolute; top: 10px; right: 12px; background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }
 @media (max-width: 900px) {
   nav { padding: 12px 14px; gap: 8px; flex-direction: column !important; align-items: stretch; }
   nav a { display: none; }
@@ -109,6 +122,18 @@ body.present { grid-template-columns: 1fr; }
   <div class="foot">Number keys <b>1–9</b> jump between demos. <b>F</b> for fullscreen. <b>P</b> hides this menu.</div>
 </nav>
 <main id="main"></main>
+<div class="gate" id="gate" hidden role="dialog" aria-modal="true" aria-labelledby="gate-title">
+  <div class="box">
+    <button class="x" id="gate-x" aria-label="Close">&times;</button>
+    <h2 id="gate-title">Add your email to keep exploring</h2>
+    <p>All nine demos are free. Add your email and you can open any of them, now and any time you come back.</p>
+    <input id="gate-name" type="text" autocomplete="given-name" placeholder="First name">
+    <input id="gate-email" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com">
+    <div class="err" id="gate-err"></div>
+    <button class="go" id="gate-go">Open all nine demos</button>
+    <p class="fine">Already on the Audio University email list or a member? Open it from the <a href="https://community.audiouniversityonline.com/c/resources/monitoring-visualizer" target="_top">Resources space</a> and you won't be asked.</p>
+  </div>
+</div>
 <script>
 "use strict";
 const C = 343, FT = 0.3048, IN = 0.0254;
@@ -1113,12 +1138,60 @@ const nav = $("nav"), mainEl = $("main"); let current = null;
 const ORDER = ["aim", "sbir", "modes", "driving", "comb", "quarter", "absorb", "decay", "corner"];
 DEMOS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 DEMOS.forEach((d, i) => { const a = document.createElement("a"); a.href = "#" + d.id; a.innerHTML = `<span class="n">${i + 1}</span><span>${d.title}</span>`; a.dataset.id = d.id; nav.insertBefore(a, nav.querySelector(".foot")); });
+// ---------- email gate ----------
+// Same three-link pattern as the Troubleshooting Lab:
+//   ?tier=member  members, never gated
+//   ?optedin=1    people already on the list (Circle Resources card, emails), never gated
+//   bare link     cold visitors (YouTube): the first demo is free, opening a second one asks for an email
+// The gate lives in localStorage, so it is friction for a lead magnet, not access control.
+// KIT_FORM_ID is the NUMERIC id from https://app.kit.com/forms/<id>/subscriptions. Blank it and the gate
+// still works (remembers locally, lets people in); it just stops posting to Kit.
+const KIT_FORM_ID = "";
+const GATE_KEY = "mv_subscribed";
+const MV_Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(""); } })();
+const MV_MEMBER = MV_Q.get("tier") === "member", MV_OPTED = MV_Q.get("optedin") === "1";
+function gateGet() { try { return localStorage.getItem(GATE_KEY) === "1"; } catch (e) { return false; } }
+function gateSet() { try { localStorage.setItem(GATE_KEY, "1"); } catch (e) {} }
+let gatePassed = MV_MEMBER || MV_OPTED || gateGet();
+if (MV_OPTED) gateSet();
+let gateFirstId = null, gatePending = null;
+function submitToKit(email, firstName) {
+  if (!KIT_FORM_ID) return Promise.resolve(false);
+  try {
+    const body = new URLSearchParams(); body.set("email_address", String(email).trim());
+    if ((firstName || "").trim()) body.set("fields[first_name]", firstName.trim());
+    return fetch("https://app.kit.com/forms/" + KIT_FORM_ID + "/subscriptions", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" }, body: body.toString() }).then(() => true).catch(() => false);
+  } catch (e) { return Promise.resolve(false); }
+}
+const gateEl = document.getElementById("gate");
+function openGate() { gateEl.hidden = false; setTimeout(() => document.getElementById("gate-name").focus(), 30); }
+function closeGate() { gateEl.hidden = true; gatePending = null; }
+document.getElementById("gate-x").onclick = closeGate;
+gateEl.addEventListener("click", e => { if (e.target === gateEl) closeGate(); });
+gateEl.addEventListener("keydown", e => { if (e.key === "Escape") closeGate(); if (e.key === "Enter") document.getElementById("gate-go").click(); e.stopPropagation(); });
+document.getElementById("gate-go").onclick = () => {
+  const n = document.getElementById("gate-name"), m = document.getElementById("gate-email"), err = document.getElementById("gate-err");
+  n.classList.remove("bad"); m.classList.remove("bad"); err.textContent = "";
+  if (!n.value.trim()) { n.classList.add("bad"); err.textContent = "Please add your first name."; n.focus(); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m.value.trim())) { m.classList.add("bad"); err.textContent = "Please check your email address."; m.focus(); return; }
+  submitToKit(m.value, n.value); gateSet(); gatePassed = true;
+  const go = gatePending; closeGate(); if (go) location.hash = go;
+};
 const navsel = document.createElement("select"); navsel.id = "navsel"; navsel.setAttribute("aria-label", "Choose a demo");
 DEMOS.forEach((d, i) => { const o = document.createElement("option"); o.value = d.id; o.textContent = (i + 1) + ". " + d.title; navsel.appendChild(o); });
 navsel.onchange = () => { location.hash = navsel.value; };
 nav.insertBefore(navsel, nav.querySelector(".foot"));
 function show() {
   const id = (location.hash || "").slice(1), d = DEMOS.find(x => x.id === id) || DEMOS[0];
+  if (!gatePassed) {
+    if (gateFirstId === null) gateFirstId = d.id;
+    else if (d.id !== gateFirstId) {
+      gatePending = d.id;
+      const back = current ? current.id : gateFirstId;
+      try { history.replaceState(null, "", location.pathname + location.search + "#" + back); } catch (e) {}
+      navsel.value = back; openGate(); return;
+    }
+  }
   if (current && current !== d) audioStop();
   current = d; loadCols(); navsel.value = d.id;
   nav.querySelectorAll("a").forEach(a => { if (a.dataset.id === d.id) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
@@ -1131,7 +1204,7 @@ function show() {
 window.addEventListener("hashchange", show);
 let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => current && current.draw(), 80); });
 document.addEventListener("keydown", e => {
-  if (e.target.matches("input, select")) return;
+  if (e.target.matches("input, select") || !gateEl.hidden) return;
   const k = e.key.toLowerCase();
   if (k === "p") { document.body.classList.toggle("present"); setTimeout(() => current.draw(), 30); }
   else if (k === "f") { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); } catch (err) {} }
