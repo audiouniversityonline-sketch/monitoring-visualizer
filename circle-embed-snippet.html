@@ -1,0 +1,63 @@
+<!--
+  CIRCLE EMBED: paste this whole block into a Custom HTML block on the members-only
+  Monitoring Visualizer page.
+
+  How it fits the page (same approach as the Ear Training Lab embed):
+    1. The visualizer reports its height to this page, and the script below sizes the
+       iframe to match, so there is never an inner scrollbar. On desktop the height
+       follows the page width (about a 16:10 shape). On phones the demos stack.
+    2. allow="fullscreen" lets members press F (or use the browser) to fill the screen.
+    3. If the visualizer has not reported its height within 12 seconds, it never ran
+       (blocked frame, extension, network filter). The embed is replaced with a short
+       explanation and a link that opens it in its own tab.
+
+  On every update to index.html, bump ?v=N below so members get the new version
+  instead of a cached copy.
+-->
+<iframe
+  src="https://audiouniversityonline-sketch.github.io/monitoring-visualizer/?v=1"
+  style="width:100%;border:0;height:760px;display:block"
+  allow="fullscreen"
+  allowfullscreen
+  scrolling="no"
+  title="Monitoring Concepts Visualizer">
+  <a href="https://audiouniversityonline-sketch.github.io/monitoring-visualizer/">Open the Monitoring Concepts Visualizer</a>
+</iframe>
+<script>
+(function () {
+  var APP = 'https://audiouniversityonline-sketch.github.io/monitoring-visualizer/';
+  var ORIGIN = 'https://audiouniversityonline-sketch.github.io';
+  var alive = false;
+
+  window.addEventListener('message', function (e) {
+    if (e.origin !== ORIGIN) return;
+    var d = e.data;
+    if (!d || d.type !== 'mv:height' || typeof d.height !== 'number') return;
+    alive = true;
+    var frames = document.querySelectorAll('iframe[src*="monitoring-visualizer"]');
+    for (var i = 0; i < frames.length; i++) {
+      if (frames[i].contentWindow === e.source) {
+        frames[i].style.height = Math.max(400, Math.min(d.height, 12000)) + 'px';
+      }
+    }
+  });
+
+  setTimeout(function () {
+    if (alive) return;
+    var f = document.querySelector('iframe[src*="monitoring-visualizer"]');
+    if (!f || !f.parentNode) return;
+    var box = document.createElement('div');
+    box.setAttribute('style',
+      'border:1px solid #2b2b2b;border-radius:10px;padding:28px 24px;text-align:center;' +
+      'font-family:system-ui,-apple-system,sans-serif;line-height:1.6;background:#111;color:#fff');
+    box.innerHTML =
+      '<div style="font-weight:700;font-size:17px;margin-bottom:8px">The Monitoring Visualizer could not open here</div>' +
+      '<div style="color:#a8a8a8;font-size:14px;margin-bottom:18px">Something in this browser is blocking embedded content. ' +
+      'Opening it in its own tab works around that.</div>' +
+      '<a href="' + APP + '" target="_blank" rel="noopener" ' +
+      'style="display:inline-block;padding:12px 22px;background:#00FF88;color:#000;border-radius:8px;' +
+      'text-decoration:none;font-weight:600">Open the Monitoring Visualizer &rarr;</a>';
+    f.parentNode.replaceChild(box, f);
+  }, 12000);
+})();
+</script>

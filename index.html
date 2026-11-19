@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitoring Concepts Visualizer</title>
+<style>
+@font-face { font-family: "Jost"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/jost-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Jost"; font-weight: 800; font-style: normal; font-display: block; src: url("fonts/jost-latin-800-normal.woff2") format("woff2"); }
+
+/* Layout idea: a sidebar of demos and one large stage per demo, built to sit behind Kyle on camera at 1080p. Single dark theme on purpose. Color meanings never change: pressure coral, air velocity cyan, direct sound white, reflections amber, panels green. */
+:root {
+  --bg: #000000;
+  --panel: #111111;
+  --line: #2b2b2b;
+  --ink: #ffffff;
+  --muted: #a8a8a8;
+  --accent: #00FF88;
+  --pressure: #ff7a6b;
+  --velocity: #4cc9f0;
+  --good: #00FF88;
+  --font-display: "Futura PT", Futura, Jost, "Century Gothic", sans-serif;
+  --font-body: "Futura PT", Futura, Jost, "Century Gothic", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); display: grid; grid-template-columns: 250px 1fr; }
+nav { border-right: 1px solid var(--line); background: var(--panel); padding: 16px 12px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+nav .brand { font-family: var(--font-display); font-weight: 800; font-size: 22px; padding: 0 8px 6px; }
+nav .brand small { display: block; font-family: var(--font-body); font-weight: 400; font-size: 13px; color: var(--muted); }
+nav a { display: grid; grid-template-columns: 22px 1fr; color: var(--muted); text-decoration: none; padding: 8px 10px; border-radius: 7px; font-weight: 400; font-size: 15px; line-height: 1.25; }
+nav a .n { color: #747474; font-variant-numeric: tabular-nums; }
+nav a:hover { color: var(--ink); background: #2b2b2b; }
+nav a[aria-current="page"], nav a[aria-current="page"] .n { color: #000000; background: var(--accent); }
+nav .foot { margin-top: auto; color: var(--muted); font-size: 12.5px; padding: 8px; line-height: 1.45; }
+main { overflow: hidden; height: 100vh; padding: 16px 22px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+main > * { flex: 0 0 auto; }
+main > .stage, main > .card.grow { flex: 1 1 0; min-height: 0; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 3.2vw, 50px); margin: 0; text-wrap: balance; line-height: 1.05; }
+.lede { color: #c9c9c9; font-size: clamp(16px, 1.05vw, 19px); max-width: 78ch; margin: 0; line-height: 1.45; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: flex-end; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.ctl { display: flex; flex-direction: column; gap: 5px; min-width: 170px; }
+.ctl label, .ctl .lab { font-size: 13.5px; color: var(--muted); font-weight: 400; }
+.ctl output { color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 220px; accent-color: var(--accent); }
+select { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 14px; max-width: 300px; }
+.btn { border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 6px 11px; border-radius: 7px; cursor: pointer; font: inherit; font-weight: 400; font-size: 14px; }
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.btnrow { display: flex; flex-wrap: wrap; gap: 6px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stage { display: grid; gap: 12px; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); }
+.stage.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.card h2 { font-family: var(--font-display); font-weight: 400; font-size: 16px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 2px 2px 6px; }
+canvas { display: block; width: 100%; flex: 1 1 0; min-height: 0; cursor: default; }
+canvas.short { flex: 0 0 auto; height: clamp(140px, 19vh, 240px); }
+canvas.click { cursor: pointer; }
+.readout { display: flex; flex-wrap: wrap; gap: 10px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 14px; min-width: 150px; }
+.stat .k { color: var(--muted); font-size: 13.5px; font-weight: 400; }
+.stat .v { font-family: var(--font-display); font-weight: 800; font-size: clamp(24px, 3vh, 32px); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .v small { font-size: 16px; color: var(--muted); font-family: var(--font-body); font-weight: 400; }
+/* Readouts whose text changes length get a fixed width (sized for the longest possible text) so the layout never shifts */
+.fixed-stats .stat { width: 470px; max-width: 100%; }
+.fixed-stats .stat .v { white-space: nowrap; }
+.src { color: var(--muted); font-size: 13px; margin: 0; }
+.src b { color: #c9c9c9; }
+.note { color: var(--muted); font-size: 13.5px; line-height: 1.5; max-width: 110ch; margin: 0; }
+.note b { color: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 15px; color: #c9c9c9; margin: 0 2px 6px; }
+.legend i { display: inline-block; width: 18px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.legend i.dash { background: repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 9px) !important; height: 3px; }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+.checks label { display: flex; align-items: center; gap: 6px; color: var(--ink); }
+.checks .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+body.present nav { display: none; }
+body.present { grid-template-columns: 1fr; }
+@media (max-width: 900px) { body { display: block; height: auto; } html { height: auto; } nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); } nav .foot { display: none; } .stage.two { grid-template-columns: 1fr; } main { overflow: visible; height: auto; } main > .stage, main > .card.grow { flex: none; } .stage { grid-template-rows: auto; } .stage > .card { min-height: 0; } canvas { flex: none; height: 380px; } canvas.short { height: 220px; } }
+@media (max-height: 820px) and (min-width: 901px) { main { gap: 7px; padding: 10px 16px 8px; } h1 { font-size: 30px; } .controls { padding: 7px 10px; gap: 6px 16px; } .ctl { gap: 3px; } .stat { padding: 4px 10px; } .stat .v { font-size: 22px; } .stat .k { font-size: 12px; } .card { padding: 6px 10px; } .card h2 { font-size: 14px; margin-bottom: 3px; } .legend { font-size: 13px; margin-bottom: 3px; } .src { font-size: 11.5px; } canvas.short { height: 110px; } .btn { padding: 4px 9px; font-size: 13px; } input[type=range] { width: 150px; } .ctl { min-width: 120px; } body { grid-template-columns: 210px 1fr; } nav a { font-size: 13.5px; padding: 6px 8px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+html.embedded, html.embedded body { height: auto; }
+html.embedded body { height: var(--emb-h, 720px); }
+html.embedded main { height: var(--emb-h, 720px); }
+html.embedded nav { height: var(--emb-h, 720px); }
+@media (max-width: 900px) { html.embedded body, html.embedded main, html.embedded nav { height: auto; } }
+</style>
+<script>
+/* Embedded mode (e.g. a Circle page). Opened directly, nothing here runs and the page fills the window as it does for filming.
+   Inside an iframe the page cannot size itself to the window, because the parent sizes the window to the page. So the height
+   comes from the width instead, and the page reports its height to the parent so the iframe grows to fit with no inner scrollbar. */
+try {
+  if (window.self !== window.top) {
+    document.documentElement.classList.add("embedded");
+    var __mvSize = function () {
+      var fs = !!document.fullscreenElement;
+      var h = fs ? window.innerHeight : Math.round(Math.min(960, Math.max(640, window.innerWidth * 0.62)));
+      document.documentElement.style.setProperty("--emb-h", h + "px");
+    };
+    __mvSize();
+    var __mvPost = function () {
+      if (document.fullscreenElement) return;
+      var h = Math.ceil(document.body ? document.body.getBoundingClientRect().height : 0);
+      if (!h || h < 200) return;
+      try { window.parent.postMessage({ type: "mv:height", height: h }, "*"); } catch (e) {}
+    };
+    window.addEventListener("resize", function () { __mvSize(); __mvPost(); });
+    document.addEventListener("fullscreenchange", function () { __mvSize(); setTimeout(__mvPost, 120); });
+    window.addEventListener("load", function () {
+      __mvPost();
+      try { new ResizeObserver(__mvPost).observe(document.body); } catch (e) {}
+      setInterval(__mvPost, 1000);
+    });
+  }
+} catch (e) {}
+</script>
+</head>
+<body>
+<nav aria-label="Demos" id="nav">
+  <div class="brand">Monitoring Concepts<small>Audio University visual aids</small></div>
+  <div class="foot">Number keys <b>1–9</b> jump between demos. <b>F</b> for fullscreen. <b>P</b> hides this menu.</div>
+</nav>
+<main id="main"></main>
+<script>
+"use strict";
+const C = 343, FT = 0.3048, IN = 0.0254;
+const BANDS = [125, 250, 500, 1000, 2000, 4000];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL = {};
+function loadCols() { ["--ink","--muted","--line","--accent","--pressure","--velocity","--good","--panel","--bg"].forEach(k => COL[k.slice(2)] = css(k)); }
+const FONT = '400 15px "Futura PT", Futura, Jost, sans-serif', FONTB = '800 15px "Futura PT", Futura, Jost, sans-serif';
+
+// Octave-band absorption data. Room surfaces: Sengpielaudio table. Foam and fiberglass: ASTM C423, mounted directly on a hard surface.
+const MAT = {
+  plaster:   { name: "Smooth plaster on brick or tile", a: [.013,.015,.02,.03,.04,.05], col: "#94a3b8" },
+  drywall:   { name: "Drywall, 1/2 in on studs",        a: [.29,.10,.05,.04,.07,.09],   col: "#e5e7eb" },
+  carpet:    { name: "Carpet on concrete",              a: [.02,.06,.14,.37,.60,.65],   col: "#f59e0b" },
+  woodfloor: { name: "Wood floor on joists",            a: [.15,.11,.10,.07,.06,.07],   col: "#fb7185" },
+  foamb1:    { name: "1 in budget wedge foam",          a: [.14,.17,.36,.47,.51,.61],   col: "#fdba74" },
+  foam1:     { name: "1 in acoustic foam",              a: [.10,.13,.30,.68,.94,1.00],  col: "#f472b6" },
+  foam2:     { name: "2 in acoustic foam",              a: [.11,.30,.91,1.05,.99,1.00], col: "#c084fc" },
+  foam4:     { name: "4 in acoustic foam",              a: [.31,.85,1.25,1.14,1.06,1.09], col: "#818cf8" },
+  oc1:       { name: "1 in rigid fiberglass",           a: [.05,.26,.63,.88,.97,.94],   col: "#bef264" },
+  oc2:       { name: "2 in rigid fiberglass",           a: [.15,.71,1.14,1.16,1.02,1.00], col: "#4ade80" },
+  oc3:       { name: "3 in rigid fiberglass",           a: [.34,1.09,1.25,1.15,1.05,1.00], col: "#2dd4bf" },
+  oc4:       { name: "4 in rigid fiberglass",           a: [.56,1.26,1.22,1.11,1.07,.96], col: "#38bdf8" }
+};
+// Soft cap: lab values above 1 come from edge effects, so physics uses a value just under 1
+function softCap(a) { return a <= 0.9 ? a : 0.9 + 0.09 * (1 - Math.exp(-(a - 0.9) / 0.09)); }
+function alphaAt(key, f) {
+  const a = MAT[key].a;
+  if (f <= 125) return softCap(a[0] * Math.max(f / 125, 0.25));   // below the lowest test band, assume absorption keeps falling
+  if (f >= 4000) return softCap(a[5]);
+  const x = Math.log2(f / 125), i = Math.floor(x), t = x - i;
+  return softCap(a[i] * (1 - t) + a[i + 1] * t);
+}
+
+// ---------- drawing helpers ----------
+function prep(cv) {
+  const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.round(r.width * d)); cv.height = Math.max(1, Math.round(r.height * d));
+  const c = cv.getContext("2d"); c.setTransform(d, 0, 0, d, 0, 0); c.font = FONT; c.textBaseline = "middle";
+  return { c, w: r.width, h: r.height, cv };
+}
+function fmtHz(f) { return f >= 1000 ? (f / 1000).toFixed(f >= 10000 || f % 1000 === 0 ? 0 : 1) + "k" : String(Math.round(f)); }
+function pill(c, text, x, y, color, align) {
+  c.font = FONTB; const w = c.measureText(text).width + 14;
+  let x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
+  const cw = c.canvas.width / (c.getTransform().a || 1); x0 = Math.max(4, Math.min(x0, cw - w - 4));
+  c.fillStyle = "rgba(21,23,28,.9)"; c.beginPath(); c.roundRect ? c.roundRect(x0, y - 13, w, 26, 7) : c.rect(x0, y - 13, w, 26); c.fill();
+  c.fillStyle = color; c.textAlign = "left"; c.fillText(text, x0 + 7, y); c.font = FONT;
+}
+function freqFrame(g, f0, f1, y0, y1, yLabel, ticks, fticks) {
+  const { c, w, h } = g; const L = 58, R = 16, T = 14, B = 40;
+  const X = f => L + (Math.log10(f / f0) / Math.log10(f1 / f0)) * (w - L - R);
+  const Y = v => T + (1 - (v - y0) / (y1 - y0)) * (h - T - B);
+  c.strokeStyle = COL.line; c.lineWidth = 1; c.fillStyle = COL.muted;
+  const fts = (fticks || [20,30,50,100,200,300,500,1000,2000,3000,5000,10000,20000]).filter(f => f >= f0 && f <= f1);
+  c.textAlign = "center";
+  fts.forEach(f => { c.beginPath(); c.moveTo(X(f), T); c.lineTo(X(f), h - B); c.stroke(); c.fillText(fmtHz(f), X(f), h - B + 15); });
+  c.textAlign = "right";
+  (ticks || []).forEach(v => { c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(w - R, Y(v)); c.stroke(); c.fillText((v > 0 ? "+" : "") + v, L - 8, Y(v)); });
+  if (yLabel) { c.save(); c.translate(14, (T + h - B) / 2); c.rotate(-Math.PI / 2); c.textAlign = "center"; c.fillText(yLabel, 0, 0); c.restore(); }
+  c.textAlign = "center"; c.fillText("Frequency (Hz)", (L + w - R) / 2, h - 9);
+  return { X, Y, L, R, T, B, w, h, clip() { c.save(); c.beginPath(); c.rect(L, T, w - L - R, h - T - B); c.clip(); } };
+}
+function curve(c, fr, pts, color, width, dash) {
+  c.strokeStyle = color; c.lineWidth = width || 2.5; c.lineJoin = "round"; c.setLineDash(dash || []); c.beginPath();
+  pts.forEach(([f, v], i) => { const x = fr.X(f), y = fr.Y(v); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke(); c.setLineDash([]);
+}
+function logSpace(f0, f1, n) { const out = []; for (let i = 0; i < n; i++) out.push(f0 * Math.pow(f1 / f0, i / (n - 1))); return out; }
+const db = x => 20 * Math.log10(Math.max(x, 1e-6));
+const clampv = (v, a, b) => Math.max(a, Math.min(b, v));
+function arrow(c, x1, y1, x2, y2, col, w) {
+  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = w || 3; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+  const a = Math.atan2(y2 - y1, x2 - x1), s = 11; c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 - s * Math.cos(a - .4), y2 - s * Math.sin(a - .4)); c.lineTo(x2 - s * Math.cos(a + .4), y2 - s * Math.sin(a + .4)); c.closePath(); c.fill();
+}
+function speakerIcon(c, x, y, s, faceRight) {
+  c.fillStyle = COL.ink; c.fillRect(x - s / 2, y - s * 0.65, s, s * 1.3);
+  c.fillStyle = COL.bg; c.beginPath(); c.arc(x + (faceRight === undefined ? 0 : 0), y + s * 0.15, s * 0.3, 0, 7); c.fill();
+  c.beginPath(); c.arc(x, y - s * 0.38, s * 0.12, 0, 7); c.fill();
+}
+function speakerTop(c, x, y, ang, s) {
+  c.save(); c.translate(x, y); c.rotate(ang); const d = s * 0.8, w = s;
+  c.fillStyle = COL.ink; c.fillRect(-d / 2, -w / 2, d, w);
+  c.fillStyle = COL.accent; c.fillRect(d / 2 - 4, -w / 2 + 2, 4, w - 4); c.restore();
+}
+function personIcon(c, x, y, r) { c.fillStyle = COL.velocity; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+function lenStr(m) { const ft = m / FT; return ft < 2 ? (m / IN).toFixed(1) + " in" : ft.toFixed(1) + " ft"; }
+
+// Bessel J1 from its integral form
+function J1(x) { const N = 120; let s = 0; for (let i = 0; i <= N; i++) { const t = Math.PI * i / N, wgt = (i === 0 || i === N) ? 1 : (i % 2 ? 4 : 2); s += wgt * Math.cos(t - x * Math.sin(t)); } return s * (Math.PI / N) / 3 / Math.PI; }
+
+// ---------- audio for the comb filter demo ----------
+const audio = { ctx: null, src: null, playing: false };
+function pinkBuffer(ctx) {
+  const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+  let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+  for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1;
+    b0 = .99886*b0 + w*.0555179; b1 = .99332*b1 + w*.0750759; b2 = .96900*b2 + w*.1538520; b3 = .86650*b3 + w*.3104856; b4 = .55000*b4 + w*.5329522; b5 = -.7616*b5 - w*.0168980;
+    d[i] = (b0+b1+b2+b3+b4+b5+b6 + w*.5362) * .11; b6 = w * .115926; }
+  return buf;
+}
+function buildIR(ctx, delaySec, gainFn, withReflection) {
+  const sr = ctx.sampleRate, N = 512, half = N / 2, dS = Math.round(delaySec * sr);
+  const ir = ctx.createBuffer(1, half + dS + N + 8, sr), d = ir.getChannelData(0);
+  d[half] = 1;
+  if (withReflection) {
+    const K = N / 2, M = []; for (let k = 0; k <= K; k++) M.push(gainFn(Math.max(k * sr / N, 20)));
+    for (let n = 0; n < N; n++) { const m = n - half; let s = M[0];
+      for (let k = 1; k < K; k++) s += 2 * M[k] * Math.cos(2 * Math.PI * k * m / N);
+      s += M[K] * Math.cos(Math.PI * m);
+      d[dS + n] += (s / N) * (0.5 - 0.5 * Math.cos(2 * Math.PI * n / (N - 1))); }
+  }
+  return ir;
+}
+let pinkCache = null;
+function audioStart(delaySec, gainFn, withRefl) {
+  try {
+    if (!audio.ctx) audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    audio.ctx.resume(); audioStop();
+    const ctx = audio.ctx; if (!pinkCache) pinkCache = pinkBuffer(ctx);
+    audio.src = ctx.createBufferSource(); audio.src.buffer = pinkCache; audio.src.loop = true;
+    const conv = ctx.createConvolver(); conv.normalize = false; conv.buffer = buildIR(ctx, delaySec, gainFn, withRefl);
+    const g = ctx.createGain(); g.gain.value = 0.22;
+    audio.src.connect(conv).connect(g).connect(ctx.destination); audio.src.start(); audio.playing = true;
+  } catch (e) { audio.playing = false; }
+}
+function audioStop() { try { if (audio.src) audio.src.stop(); } catch (e) {} audio.src = null; audio.playing = false; }
+
+// ---------- UI helpers ----------
+function slider(id, label, min, max, step, val, fmt) {
+  return `<div class="ctl"><label for="${id}">${label} <output id="${id}-o"></output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" data-fmt="${fmt || ""}"></div>`;
+}
+function selectBox(id, label, opts, val) {
+  return `<div class="ctl"><label for="${id}">${label}</label><select id="${id}">${opts.map(([v, t]) => `<option value="${v}"${v === val ? " selected" : ""}>${t}</option>`).join("")}</select></div>`;
+}
+function stat(id, k) { return `<div class="stat"><div class="k">${k}</div><div class="v" id="${id}">–</div></div>`; }
+const $ = id => document.getElementById(id);
+const num = id => parseFloat($(id).value);
+function fmtOut(v, f) { return f === "ft" ? v.toFixed(1) + " ft (" + (v * FT).toFixed(2) + " m)" : f === "in" ? v + " in" : f === "loghz" ? fmtHz(Math.round(Math.pow(10, v))) + " Hz" : f === "pct" ? Math.round(v * 100) + "%" : f === "deg" ? v + "°" : f === "sqft" ? v + " sq ft" : f === "panels" ? v + (v === 1 ? " panel" : " panels") : String(v); }
+let measureCtx = null;
+function syncOutputs(root) {
+  root.querySelectorAll("input[type=range]").forEach(r => {
+    const o = $(r.id + "-o"); if (!o) return; const v = parseFloat(r.value), f = r.dataset.fmt;
+    o.textContent = fmtOut(v, f);
+    // Reserve room for the widest value the slider can show, so the controls never rewrap while it moves
+    if (!o.dataset.mw) {
+      measureCtx = measureCtx || document.createElement("canvas").getContext("2d");
+      const cs = getComputedStyle(o); measureCtx.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+      const lo = parseFloat(r.min), hi = parseFloat(r.max), st = parseFloat(r.step) || (hi - lo) / 200;
+      let w = 0; for (let x = lo; x <= hi + 1e-9; x += Math.max(st, (hi - lo) / 400)) w = Math.max(w, measureCtx.measureText(fmtOut(+x.toFixed(4), f)).width);
+      w = Math.max(w, measureCtx.measureText(fmtOut(hi, f)).width);
+      o.style.display = "inline-block"; o.style.minWidth = (w / parseFloat(cs.fontSize) + 0.1).toFixed(2) + "em"; o.dataset.mw = "1";
+    }
+  });
+}
+
+const DEMOS = [];
+
+// ===== 1. Comb filtering =====
+DEMOS.push({
+  id: "comb", title: "Reflections and comb filtering",
+  src: "Reflection off a flat side wall, weakened by distance and by the surface's absorption · absorption data: Owens Corning 703 data sheet · Auralex Studiofoam lab reports, Riverbank Acoustical Labs · Sengpielaudio (drywall) · speaker aimed at you, with the same modeled two-way speaker as the aiming demo, so it sends less treble toward the wall",
+  html: () => `<div class="controls">
+      <div class="ctl"><span class="lab">View</span><div class="btnrow"><button class="btn" id="cb-vg" aria-pressed="true">Comb filtering</button><button class="btn" id="cb-vm" aria-pressed="false">Mirror trick</button></div></div>
+      ${slider("cb-d", "Speaker to listener", 2, 10, .1, 4, "ft")}
+      ${slider("cb-w", "Speaker and listener to side wall", .5, 8, .1, 2.5, "ft")}
+      <span id="cb-gctl" class="btnrow" style="gap:22px">${selectBox("cb-m", "Surface at the reflection point", [["drywall","Bare drywall"],["foam1","1 in foam"],["foam2","2 in foam"],["oc2","2 in fiberglass panel"],["oc4","4 in fiberglass panel"]], "drywall")}
+      ${selectBox("cb-rng", "Graph range", [["mid","100 Hz to 5 kHz"],["full","20 Hz to 20 kHz"]], "mid")}
+      <div class="ctl"><span class="lab">Listen (pink noise, headphones)</span><div class="btnrow"><button class="btn" id="cb-pd" aria-pressed="false">Direct only</button><button class="btn" id="cb-pr" aria-pressed="false">With reflection</button><button class="btn" id="cb-ps">Stop</button></div></div></span>
+      <span id="cb-mctl" class="btnrow" style="gap:22px;display:none">${slider("cb-mp", "Slide the mirror along the wall", 0, 10, .05, 0.5, "ft")}</span>
+    </div>
+    <div class="readout" id="cb-rg">${stat("cb-diff","Reflection travels farther by")}${stat("cb-dt","Arrives late by")}${stat("cb-n1","First cancellation")}${stat("cb-pk","Cancellations repeat every")}</div>
+    <div class="readout" id="cb-rm" style="display:none">${stat("cb-mdist","Mirror distance along the wall")}</div>
+    <div class="stage two"><div class="card"><h2>Top view</h2><canvas id="cb-geo" class="tall"></canvas></div>
+    <div class="card" id="cb-povcard" style="display:none"><h2>From your seat, looking at the side wall</h2><canvas id="cb-pov" class="tall"></canvas></div>
+    <div class="card" id="cb-plotcard"><h2>What reaches your ears</h2><div class="legend"><span><i style="background:var(--accent)"></i>Direct sound plus the reflection</span><span><i style="background:var(--ink)"></i>Direct sound alone</span><span id="cb-ghostkey" style="display:none"><i class="dash" style="color:#a3a3a3"></i>Bare wall</span></div><canvas id="cb-plot" class="tall"></canvas></div></div>`,
+  geom() { const d = num("cb-d") * FT, w = num("cb-w") * FT, refl = Math.sqrt(d * d + 4 * w * w); return { d, w, refl, diff: refl - d, dt: (refl - d) / C, off: Math.atan2(2 * w, d) }; },
+  // Reflection strength: farther to travel (d / refl), the speaker's own off-axis drop toward the reflection point, and what the surface absorbs
+  gainFor(m) { const g = this.geom(); return f => (g.d / g.refl) * twoWay(f, g.off) * Math.sqrt(1 - alphaAt(m, f)); },
+  gainFn() { return this.gainFor($("cb-m").value); },
+  resp(f, gf, g) { const gg = gf(f), ph = 2 * Math.PI * f * g.dt; return db(Math.hypot(1 + gg * Math.cos(ph), gg * Math.sin(ph))); },
+  view: "graph",
+  // Mirror trick. x runs along the side wall from your ears toward the speaker, y is the distance out from the wall, z is height (meters).
+  // The speaker shows in the mirror when the line from your eye to the speaker's mirror image (behind the wall) passes through the mirror.
+  MW: 12 * IN, MH: 16 * IN, CAB: 8 * IN, CABH: 13 * IN,
+  mirrorSees() {
+    const g = this.geom(), m = num("cb-mp") * FT, a = this.MW / 2, w = g.w, d = g.d;
+    const tw = Math.abs(d / 2 - m) <= a;                                  // tweeter: its image lines up at the midpoint
+    const lo = d * w / (2 * w + this.CAB / 2), hi = d * w / Math.max(2 * w - this.CAB / 2, 1e-3);
+    const cab = hi >= m - a && lo <= m + a;                               // any part of the cabinet
+    const you = Math.abs(m) <= a + 0.06;
+    return { tw, cab, you, m, a };
+  },
+  drawMirror() {
+    const g = this.geom(), d = g.d, w = g.w, zE = EAR * IN, ms = this.mirrorSees(), m = ms.m, a = ms.a, b = this.MH / 2;
+    const ceil = 8.5 * FT, xf = d + 1.5 * FT, xb = -8 * FT, roomW = Math.max(11 * FT, w + 3 * FT);
+    $("cb-mdist").innerHTML = (m / FT).toFixed(1) + " <small>ft</small>";
+    const V = prep($("cb-pov")), c = V.c;
+    const refl = Math.atan2(d / 2, w), psi = clampv(refl * 0.6 + 15 * Math.PI / 180, 15 * Math.PI / 180, 65 * Math.PI / 180);
+    const Fv = [Math.sin(psi), -Math.cos(psi), 0], Rv = [-Math.cos(psi), -Math.sin(psi), 0], E = [0, w, zE];
+    const foc = (V.w / 2) / Math.tan(45 * Math.PI / 180), cx = V.w / 2, cy = V.h * 0.5, NEAR = 0.05;
+    const cam = P => { const r = [P[0] - E[0], P[1] - E[1], P[2] - E[2]]; return [r[0] * Rv[0] + r[1] * Rv[1], r[2], r[0] * Fv[0] + r[1] * Fv[1]]; };
+    const scr = q => [cx + foc * q[0] / q[2], cy - foc * q[1] / q[2]];
+    const clip = pts => { const out = []; for (let i = 0; i < pts.length; i++) { const A = pts[i], B = pts[(i + 1) % pts.length], ia = A[2] >= NEAR, ib = B[2] >= NEAR;
+        if (ia) out.push(A); if (ia !== ib) { const t = (NEAR - A[2]) / (B[2] - A[2]); out.push([A[0] + t * (B[0] - A[0]), A[1] + t * (B[1] - A[1]), NEAR]); } } return out; };
+    const path = P => { const q = clip(P.map(cam)); if (q.length < 3) return false; c.beginPath(); q.forEach((v, i) => { const [x, y] = scr(v); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.closePath(); return true; };
+    const poly = (P, fill, stroke) => { if (!path(P)) return; if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = 1.5; c.stroke(); } };
+    const seg = (A, B, col, lw) => { let a = cam(A), bb = cam(B); if (a[2] < NEAR && bb[2] < NEAR) return;
+      if (a[2] < NEAR) { const t = (NEAR - a[2]) / (bb[2] - a[2]); a = a.map((v, i) => v + t * (bb[i] - v)); }
+      if (bb[2] < NEAR) { const t = (NEAR - bb[2]) / (a[2] - bb[2]); bb = bb.map((v, i) => v + t * (a[i] - v)); }
+      const [x1, y1] = scr(a), [x2, y2] = scr(bb); c.strokeStyle = col; c.lineWidth = lw || 1.5; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); };
+    // Room surfaces. sgn = -1 draws the room's mirror image behind the wall.
+    const room = sgn => {
+      const Y = y => sgn * y, far = roomW, k = sgn < 0 ? ["#191919", "#222222", "#2a2a2a", "#1f1f1f"] : ["#272727", "#333333", "#3d3d3d"];
+      poly([[xb, Y(0), 0], [xf, Y(0), 0], [xf, Y(far), 0], [xb, Y(far), 0]], k[0]);
+      poly([[xb, Y(0), ceil], [xf, Y(0), ceil], [xf, Y(far), ceil], [xb, Y(far), ceil]], k[1]);
+      poly([[xf, Y(0), 0], [xf, Y(far), 0], [xf, Y(far), ceil], [xf, Y(0), ceil]], k[2]);
+      if (sgn < 0) poly([[xb, Y(far), 0], [xf, Y(far), 0], [xf, Y(far), ceil], [xb, Y(far), ceil]], k[3]);
+      seg([xf, Y(0), 0], [xf, Y(far), 0], "#525252"); seg([xf, Y(0), ceil], [xf, Y(far), ceil], "#525252");
+      if (sgn < 0) { seg([xb, Y(far), 0], [xf, Y(far), 0], "#525252"); seg([xf, Y(far), 0], [xf, Y(far), ceil], "#525252"); }
+    };
+    const speaker = sgn => {   // cabinet front faces you (the -x direction); tweeter at ear height
+      const yc = sgn * w, hw = this.CAB / 2, top = zE + 2.5 * IN, bot = top - this.CABH, x0 = d;
+      seg([x0 + 4 * IN, yc, bot], [x0 + 4 * IN, yc, 0], "#747474", 4);
+      poly([[x0, yc - hw, bot], [x0, yc + hw, bot], [x0, yc + hw, top], [x0, yc - hw, top]], COL.ink, "#a3a3a3");
+      const circ = (zc, r, fill) => poly(Array.from({ length: 28 }, (_, i) => [x0 - 0.002, yc + r * Math.cos(i / 28 * 2 * Math.PI), zc + r * Math.sin(i / 28 * 2 * Math.PI)]), fill);
+      circ(zE, 0.9 * IN, "#000000"); circ(zE, 0.45 * IN, COL.accent); circ(zE - 6 * IN, 3.2 * IN, "#000000");
+    };
+    // Real room, then the side wall with distance marks along the floor
+    c.fillStyle = "#303030"; c.fillRect(0, 0, V.w, V.h);
+    room(1); speaker(1);
+    poly([[xb, 0, 0], [xf, 0, 0], [xf, 0, ceil], [xb, 0, ceil]], "#414141");
+    seg([xb, 0, 0], [xf, 0, 0], "#626262", 2); seg([xb, 0, ceil], [xf, 0, ceil], "#626262", 2); seg([xf, 0, 0], [xf, 0, ceil], "#626262", 2);
+    // A tape line along the wall just under the mirror, marked in feet from your seat
+    const zt = zE - b - 0.1; c.font = FONT; c.textAlign = "center"; seg([xb, 0, zt], [xf, 0, zt], "#747474", 1.5);
+    let lastX = -99;
+    for (let f = 0; f * FT < xf - 0.1; f++) { const X = f * FT; seg([X, 0, zt], [X, 0, zt + 0.06], "#a3a3a3", 2); const q = cam([X, 0, zt - 0.07]);
+      if (q[2] > NEAR) { const [x, y] = scr(q); if (x > 24 && x < V.w - 24 && Math.abs(x - lastX) > 40) { c.fillStyle = "#a3a3a3"; c.fillText(f + " ft", x, y); lastX = x; } } }
+    // The mirror: clip to its outline and draw the mirrored room inside it
+    const mir = [[m - a, 0.001, zE - b], [m + a, 0.001, zE - b], [m + a, 0.001, zE + b], [m - a, 0.001, zE + b]];
+    c.save();
+    if (path(mir)) {
+      c.clip(); c.fillStyle = "#222222"; c.fillRect(0, 0, V.w, V.h);
+      room(-1); speaker(-1);
+      const hq = cam([0, -w, zE]); if (hq[2] > NEAR) { const [hx, hy] = scr(hq), hr = foc * 0.09 / hq[2]; c.fillStyle = COL.velocity; c.beginPath(); c.arc(hx, hy, hr, 0, 7); c.fill();
+        c.beginPath(); c.ellipse(hx, hy + hr * 2.6, hr * 2.2, hr * 1.3, 0, Math.PI, 2 * Math.PI); c.fill(); }
+      const sh = c.createLinearGradient(0, 0, V.w, V.h); sh.addColorStop(0, "rgba(160,200,235,.16)"); sh.addColorStop(0.5, "rgba(160,200,235,.05)"); sh.addColorStop(1, "rgba(160,200,235,.14)");
+      c.fillStyle = sh; c.fillRect(0, 0, V.w, V.h);
+    }
+    c.restore();
+    if (path(mir)) { c.strokeStyle = ms.tw ? COL.good : "#dddddd"; c.lineWidth = ms.tw ? 5 : 4; c.stroke(); }
+    pill(c, ms.tw ? "There's the speaker. This is your first reflection point." : ms.cab ? "Almost. Part of the speaker is showing." : "Slide the mirror until you see the speaker", 14, 24, ms.tw ? COL.good : ms.cab ? COL.pressure : COL.ink);
+    pill(c, "Front wall", 14, V.h - 22, COL.muted);
+  },
+  draw() {
+    const g = this.geom(), m = $("cb-m").value, gf = this.gainFn(), mirror = this.view === "mirror";
+    $("cb-diff").innerHTML = lenStr(g.diff).replace(/ (in|ft)/, " <small>$1</small>");
+    $("cb-dt").innerHTML = (g.dt * 1000).toFixed(2) + " <small>ms</small>";
+    // Cuts land where the reflection arrives half a cycle late (1/2, 3/2, 5/2 ... divided by the delay); boosts land in between
+    const f1 = 1 / (2 * g.dt), fp = 1 / g.dt;
+    $("cb-n1").innerHTML = fmtHz(Math.round(f1)) + " <small>Hz</small>";
+    $("cb-pk").innerHTML = fmtHz(Math.round(fp)) + " <small>Hz</small>";
+    const G = prep($("cb-geo")), c = G.c, dFt = num("cb-d"), wFt = num("cb-w");
+    const sc = Math.min((G.w - 80) / (dFt + 1.5), (G.h - 110) / (wFt + 0.8));
+    const cx = G.w / 2, wallY = 50, sx = cx - dFt * sc / 2, lx = cx + dFt * sc / 2, py = wallY + wFt * sc, mx = (sx + lx) / 2;
+    c.fillStyle = "#5d5d5d"; c.fillRect(10, wallY - 8, G.w - 20, 8);
+    if (m !== "drywall" && !mirror) { const pw = Math.max(2 * sc, 44); c.fillStyle = MAT[m].col; c.fillRect(mx - pw / 2, wallY, pw, m === "oc4" ? 12 : 7); }
+    c.fillStyle = COL.muted; c.textAlign = "left"; c.fillText("Side wall", 14, wallY - 22);
+    if (mirror) {
+      const ms = this.mirrorSees(), mmx = lx - (ms.m / FT) * sc, half = Math.max(ms.a / FT * sc, 6), hit = lx - 2 * (ms.m / FT) * sc;
+      if (ms.tw) { arrow(c, sx, py, mx, wallY + 2, COL.accent, 3); arrow(c, mx, wallY + 2, lx, py, COL.accent, 3); }
+      c.strokeStyle = "rgba(76,201,240,.8)"; c.lineWidth = 2; c.setLineDash([6, 5]); c.beginPath(); c.moveTo(lx, py); c.lineTo(mmx, wallY + 3); c.lineTo(hit, py); c.stroke(); c.setLineDash([]);
+      c.fillStyle = ms.tw ? COL.good : "#dddddd"; c.fillRect(mmx - half, wallY, 2 * half, 6);
+      speakerTop(c, sx, py, Math.atan2(0, 1), 26); personIcon(c, lx, py, 12);
+      c.fillStyle = COL.ink; c.textAlign = "center"; c.fillText("Speaker", sx, py + 34); c.fillText("You", lx, py + 34);
+      pill(c, "Mirror", mmx, wallY + 26, ms.tw ? COL.good : COL.ink, "center");
+      pill(c, "Your line of sight", (lx + mmx) / 2 + 40, wallY + (py - wallY) * 0.55, COL.velocity, "center");
+      if (ms.tw) pill(c, "Reflection point", mx, wallY + 56, COL.accent, "center");
+      this.drawMirror();
+      return;
+    }
+    c.strokeStyle = COL.ink; c.lineWidth = 3; c.beginPath(); c.moveTo(sx, py); c.lineTo(lx, py); c.stroke();
+    arrow(c, sx, py, mx, wallY + 2, COL.accent, 3); arrow(c, mx, wallY + 2, lx, py, COL.accent, 3);
+    speakerTop(c, sx, py, Math.atan2(0, 1), 26); personIcon(c, lx, py, 12);
+    c.fillStyle = COL.ink; c.textAlign = "center"; c.fillText("Speaker", sx, py + 34); c.fillText("You", lx, py + 34);
+    pill(c, "Direct " + lenStr(g.d), cx, py + 22, COL.ink, "center");
+    pill(c, "Reflection " + lenStr(g.refl), mx, wallY + (py - wallY) * 0.45, COL.accent, "center");
+    pill(c, "Reflection point", mx, wallY + 26, COL.accent, "center");
+    const full = $("cb-rng").value === "full", f0 = full ? 20 : 100, fEnd = full ? 20000 : 5000;
+    const P = prep($("cb-plot")), fr = freqFrame(P, f0, fEnd, -18, 8, "Level change (dB)", [-15,-10,-5,0,5]);
+    const fsx = logSpace(f0, fEnd, full ? 2400 : 1400), pts = fsx.map(f => [f, this.resp(f, gf, g)]);
+    fr.clip(); P.c.fillStyle = "rgba(255,122,107,.07)"; P.c.fillRect(fr.L, fr.Y(0), P.w, P.h);
+    $("cb-ghostkey").style.display = m === "drywall" ? "none" : "";
+    if (m !== "drywall") { const gb = this.gainFor("drywall"); curve(P.c, fr, fsx.map(f => [f, this.resp(f, gb, g)]), "rgba(154,161,173,.55)", 1.6, [5, 5]); }
+    curve(P.c, fr, [[f0, 0], [fEnd, 0]], COL.ink, 2); curve(P.c, fr, pts, COL.accent, 2.8); P.c.restore();
+    if (f1 >= f0 && f1 <= fEnd) { const y = fr.Y(Math.max(this.resp(f1, gf, g), -16.5)); P.c.strokeStyle = COL.pressure; P.c.lineWidth = 2; P.c.beginPath(); P.c.arc(fr.X(f1), y, 7, 0, 7); P.c.stroke(); pill(P.c, "Cancellation at " + Math.round(f1) + " Hz", fr.X(f1), y > P.h - fr.B - 40 ? y - 26 : y + 26, COL.pressure, fr.X(f1) > P.w - 160 ? "right" : "center"); }
+    if (fp >= f0 && fp <= fEnd) pill(P.c, "Boost", fr.X(fp), fr.Y(this.resp(fp, gf, g)) - 22, COL.accent, "center");
+    P.c.fillStyle = COL.muted; P.c.textAlign = "left"; P.c.fillText("Louder", fr.L + 8, fr.T + 12); P.c.fillText("Quieter", fr.L + 8, P.h - fr.B - 12);
+    if (audio.playing && this.mode) this.play(this.mode);
+  },
+  play(mode) { this.mode = mode; const g = this.geom(); audioStart(g.dt, this.gainFn(), mode === "r");
+    $("cb-pd").setAttribute("aria-pressed", String(mode === "d")); $("cb-pr").setAttribute("aria-pressed", String(mode === "r")); },
+  setView(v) { this.view = v; const mi = v === "mirror";
+    $("cb-vg").setAttribute("aria-pressed", String(!mi)); $("cb-vm").setAttribute("aria-pressed", String(mi));
+    $("cb-gctl").style.display = mi ? "none" : "flex"; $("cb-mctl").style.display = mi ? "flex" : "none";
+    $("cb-rg").style.display = mi ? "none" : ""; $("cb-rm").style.display = mi ? "" : "none";
+    $("cb-plotcard").style.display = mi ? "none" : ""; $("cb-povcard").style.display = mi ? "" : "none";
+    if (mi) { $("cb-mp").value = 0.5; syncOutputs($("main")); }
+    this.draw(); },
+  init() {
+    $("cb-vg").onclick = () => this.setView("graph"); $("cb-vm").onclick = () => this.setView("mirror");
+    this.view = "graph";
+    $("cb-pd").onclick = () => this.play("d"); $("cb-pr").onclick = () => this.play("r");
+    $("cb-ps").onclick = () => { audioStop(); this.mode = null; $("cb-pd").setAttribute("aria-pressed","false"); $("cb-pr").setAttribute("aria-pressed","false"); };
+  }
+});
+
+// ===== 2. Pointing the speakers =====
+// Simplified two-way monitor: 6.5 in woofer, 1 in tweeter in a shallow waveguide, LR4 crossover at 2.5 kHz,
+// woofer center 5.5 in below the tweeter. Each driver radiates like a flat piston.
+// Checked against Klippel measurements of the JBL 305P MkII (Erin's Audio Corner): at 30 degrees the model is within about 1 to 2 dB at 10 and 15 kHz.
+// Seated ear height 47 in (1.2 m), the listener ear height used by EBU Tech 3276 and ITU-R BS.1116.
+const XO = 2500, AW = 0.065, AT = 0.015, DRV = 5.5, DESK = 29, EAR = 47, BOXUP = 2.5, BOXDN = 10.5, BOXD = 8;
+function piston(a, f, th) { const x = 2 * Math.PI * f / C * a * Math.sin(th); return Math.abs(x) < 1e-4 ? 1 : Math.abs(2 * J1(x) / x); }
+function lr4(f) { // returns [lpRe, lpIm, hpRe, hpIm] for a 4th-order Linkwitz-Riley crossover
+  const w = f / XO, bRe = 1 - w * w, bIm = Math.SQRT2 * w;          // B(s) = s^2 + sqrt2 s + 1 at s = jw
+  const b2Re = bRe * bRe - bIm * bIm, b2Im = 2 * bRe * bIm, den = b2Re * b2Re + b2Im * b2Im;
+  const lpRe = b2Re / den, lpIm = -b2Im / den, s4 = w ** 4;           // LP = 1/B^2, HP = s^4/B^2 (s^4 = w^4)
+  return [lpRe, lpIm, s4 * lpRe, s4 * lpIm];
+}
+function twoWay(f, th) { const [a, b, c, d] = lr4(f), pw = piston(AW, f, th), pt = piston(AT, f, th); return Math.hypot(a * pw + c * pt, b * pw + d * pt); }
+let BEAM6 = null;
+function beamHalf() { if (BEAM6) return BEAM6; for (let d = 1; d <= 90; d += .5) if (db(twoWay(15000, d * Math.PI / 180)) < -3) return (BEAM6 = d); return (BEAM6 = 90); }
+// Side view: sum both drivers at the ear, with or without the bounce off the desk (all lengths in inches)
+function sideResp(f, D, ht, tl, desk) {
+  const k = 2 * Math.PI * f / C * IN, [lr, li, hr, hi] = lr4(f), fd = C / 0.76, R = Math.sqrt(1 - 0.1) * (f / fd) / Math.hypot(1, f / fd);   // hard desktop (absorption about 0.1), about 30 in deep, so it reflects less once the wavelength is longer than the desk
+  let re = 0, im = 0;
+  const add = (x, y, a, fRe, fIm, img) => {
+    const yy = img ? 2 * DESK - y : y, vx = D - x, vy = EAR - yy, r = Math.hypot(vx, vy);
+    const axY = img ? -Math.sin(tl) : Math.sin(tl), axX = Math.cos(tl), th = Math.acos(clampv((vx * axX + vy * axY) / r, -1, 1));
+    const g = piston(a, f, th) / r * (img ? R : 1), ph = -k * r;
+    re += g * (fRe * Math.cos(ph) - fIm * Math.sin(ph)); im += g * (fRe * Math.sin(ph) + fIm * Math.cos(ph));
+  };
+  // Tilting the cabinet back swings the woofer forward under the tweeter, so both stay the same distance from an ear on the axis
+  const drivers = [[0, ht, AT, hr, hi], [DRV * Math.sin(tl), ht - DRV * Math.cos(tl), AW, lr, li]];
+  drivers.forEach(([x, y, a, fr, fi]) => { add(x, y, a, fr, fi, false); if (desk && deskHit(D, y)) add(x, y, a, fr, fi, true); });
+  return db(Math.hypot(re, im) * Math.hypot(D, EAR - ht));
+}
+function deskHit(D, y) { const up = y - DESK, xr = D * up / (up + EAR - DESK); return up > 0 && xr > 1 && xr < D - 18 ? xr : null; }
+DEMOS.push({
+  id: "aim", title: "Pointing your speakers at your ears",
+  src: "Modeled two-way speaker: 6.5 in woofer, 1 in tweeter, 2.5 kHz Linkwitz-Riley crossover, each driver modeled as a flat piston (D. Russell, Penn State) · model checked against JBL 305P MkII off-axis measurements, Erin's Audio Corner · ear height 47 in (1.2 m, EBU Tech 3276) · desk 29 in high · side view smoothed to 1/6 octave",
+  html: () => `<div class="controls">
+      <div class="ctl"><span class="lab">View</span><div class="btnrow"><button class="btn" id="am-h" aria-pressed="true">Top view (aim)</button><button class="btn" id="am-v" aria-pressed="false">Side view (height)</button></div></div>
+      ${slider("am-d", "Distance to you", 3, 8, .1, 4, "ft")}
+      <span id="am-hctl" class="btnrow" style="gap:22px">${slider("am-t", "Speakers turned toward you", 0, 40, 1, 0, "deg")}
+        <div class="ctl"><span class="lab">Presets</span><div class="btnrow"><button class="btn" data-t="0">Facing straight ahead</button><button class="btn" data-t="30">Pointed at you</button></div></div></span>
+      <span id="am-vctl" class="btnrow" style="gap:22px;display:none">${slider("am-ht", "Tweeter height", 39.5, 60, .5, 39.5, "in")}${slider("am-tl", "Tilt up", -10, 20, 1, 0, "deg")}
+        <div class="ctl"><span class="lab">Desk bounce</span><div class="btnrow"><button class="btn" id="am-dk" aria-pressed="false">On</button><button class="btn" id="am-nd" aria-pressed="true">Off</button></div></div>
+        <div class="ctl"><span class="lab">Presets</span><div class="btnrow"><button class="btn" data-h="39.5" data-tl="0">On the desk</button><button class="btn" data-h="39.5" data-tl="9">On the desk, tilted up</button><button class="btn" data-h="47" data-tl="0">Raised to ear height</button></div></div></span>
+    </div>
+    <div class="stage two"><div class="card"><h2 id="am-title">Top view</h2><canvas id="am-geo" class="tall"></canvas></div>
+    <div class="card"><h2>What reaches your ears</h2><div class="legend"><span><i style="background:var(--ink)"></i>Pointed straight at you, nothing in the way</span><span><i style="background:var(--accent)"></i>Where you're sitting</span><span id="am-nokey" style="display:none"><i class="dash" style="color:#a3a3a3"></i>Same spot, no desk bounce</span></div><canvas id="am-plot" class="tall"></canvas></div></div>`,
+  vert: false, desk: false,
+  offAngle() {
+    if (!this.vert) return Math.abs(30 - num("am-t"));
+    const D = num("am-d") * 12, rise = EAR - num("am-ht");
+    return Math.abs(Math.atan2(rise, D) * 180 / Math.PI - num("am-tl"));
+  },
+  draw() {
+    const off = this.offAngle(), th = off * Math.PI / 180, D = num("am-d") * 12, ht = num("am-ht"), tl = num("am-tl") * Math.PI / 180;
+    const fs = logSpace(100, 20000, this.vert ? 1400 : 400);
+    let pts, ghost = null;
+    if (!this.vert) {
+      pts = fs.map(f => [f, db(twoWay(f, th))]);
+    } else {
+      // 1/6-octave smoothing, the way room measurements are usually shown
+      const sm = arr => arr.map((v, i) => { let s = 0, n = 0; for (let j = i - 40; j <= i + 40; j++) if (j >= 0 && j < arr.length && Math.abs(Math.log2(fs[j] / fs[i])) <= 1 / 12) { s += Math.pow(10, arr[j] / 10); n++; } return 10 * Math.log10(s / n); });
+      pts = sm(fs.map(f => sideResp(f, D, ht, tl, this.desk))).map((v, i) => [fs[i], v]);
+      ghost = this.desk ? sm(fs.map(f => sideResp(f, D, ht, tl, false))).map((v, i) => [fs[i], v]) : null;
+    }
+    $("am-nokey").style.display = ghost ? "" : "none";
+    const G = prep($("am-geo")), c = G.c, bh = beamHalf() * Math.PI / 180;
+    const wedge = (x, y, ang, len) => { const gr = c.createRadialGradient(x, y, 0, x, y, len); gr.addColorStop(0, "rgba(0,255,136,.3)"); gr.addColorStop(1, "rgba(0,255,136,0)");
+      c.fillStyle = gr; c.beginPath(); c.moveTo(x, y); c.arc(x, y, len, ang - bh, ang + bh); c.closePath(); c.fill();
+      c.strokeStyle = "rgba(0,255,136,.7)"; c.setLineDash([6, 6]); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x, y); c.lineTo(x + len * Math.cos(ang), y + len * Math.sin(ang)); c.stroke(); c.setLineDash([]); };
+    if (!this.vert) {
+      $("am-title").textContent = "Top view";
+      const Dft = num("am-d"), s = Math.min((G.w - 80) / (Dft * 1.5), (G.h - 110) / (Dft * 0.87 + 1.2));
+      const lx = G.w / 2, ly = G.h - 70, h = Dft * Math.sqrt(3) / 2 * s, spk = [[lx - Dft * s / 2, ly - h, 1], [lx + Dft * s / 2, ly - h, -1]];
+      spk.forEach(([x, y, side]) => {
+        const ang = Math.PI / 2 - side * num("am-t") * Math.PI / 180;
+        wedge(x, y, ang, Dft * s * 1.15);
+        c.strokeStyle = "rgba(238,240,243,.55)"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x, y); c.lineTo(lx, ly); c.stroke();
+        speakerTop(c, x, y, ang, 40);
+      });
+      personIcon(c, lx, ly, 13); c.fillStyle = COL.ink; c.textAlign = "center"; c.fillText("You", lx, ly + 30);
+      pill(c, "Where the highs go (15 kHz)", 12, 22, COL.accent);
+      pill(c, off.toFixed(0) + "° off axis", lx, ly - h * 0.5, off > 3 ? COL.pressure : COL.good, "center");
+    } else {
+      $("am-title").textContent = "Side view";
+      const s = Math.min((G.w - 90) / (D + 14), (G.h - 70) / 64), floorY = G.h - 34, x0 = 30 + 10 * s, X = v => x0 + v * s, Y = v => floorY - v * s;
+      c.strokeStyle = COL.line; c.lineWidth = 2; c.beginPath(); c.moveTo(14, floorY); c.lineTo(G.w - 14, floorY); c.stroke();
+      // desk: top slab and two legs
+      const dFront = D - 18; c.fillStyle = "#414141"; c.fillRect(X(-10), Y(DESK), X(dFront) - X(-10), 1.5 * s);
+      c.fillRect(X(-8), Y(DESK - 1.5), 1.5 * s, (DESK - 1.5) * s); c.fillRect(X(dFront - 3.5), Y(DESK - 1.5), 1.5 * s, (DESK - 1.5) * s);
+      c.fillStyle = COL.muted; c.textAlign = "left"; c.fillText("Desk", X(dFront) + 10, Y(DESK) + 2);
+      // speaker: plain box rotated about the tweeter; centered stand post when raised
+      const sx = X(0), sy = Y(ht), rot = (px, py) => [sx + (px * Math.cos(-tl) - py * Math.sin(-tl)) * s, sy + (px * Math.sin(-tl) + py * Math.cos(-tl)) * s];
+      const [bcx, bcy] = rot(-BOXD / 2, BOXDN);
+      if (bcy < Y(DESK) - 2) { c.fillStyle = "#747474"; c.fillRect(bcx - 1.2 * s, bcy, 2.4 * s, Y(DESK) - bcy); c.fillRect(bcx - 4 * s, Y(DESK) - 1.2 * s, 8 * s, 1.2 * s); }
+      wedge(sx, sy, -tl, D * s * 1.1);
+      c.save(); c.translate(sx, sy); c.rotate(-tl); c.fillStyle = COL.ink; c.fillRect(-BOXD * s, -BOXUP * s, BOXD * s, (BOXUP + BOXDN) * s);
+      c.fillStyle = COL.accent; c.fillRect(-4, -BOXUP * s + 2, 4, (BOXUP + BOXDN) * s - 4); c.restore();
+      const ex = X(D), ey = Y(EAR), hit = deskHit(D, ht);
+      c.strokeStyle = "rgba(238,240,243,.6)"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(sx, sy); c.lineTo(ex, ey); c.stroke();
+      if (this.desk && hit) { const rx = X(hit), ry = Y(DESK); c.strokeStyle = COL.pressure; c.lineWidth = 2; c.setLineDash([7, 5]); c.beginPath(); c.moveTo(sx, sy); c.lineTo(rx, ry); c.lineTo(ex, ey); c.stroke(); c.setLineDash([]);
+        c.fillStyle = COL.pressure; c.beginPath(); c.arc(rx, ry, 5, 0, 7); c.fill(); pill(c, "Desk bounce", rx, ry + 24, COL.pressure, "center"); }
+      c.strokeStyle = "rgba(76,201,240,.45)"; c.setLineDash([4, 5]); c.beginPath(); c.moveTo(14, ey); c.lineTo(G.w - 14, ey); c.stroke(); c.setLineDash([]);
+      personIcon(c, ex, ey, 11);
+      pill(c, "Your ears, " + EAR + " in", G.w - 14, ey - 24, COL.velocity, "right");
+      pill(c, "Tweeter " + ht + " in", sx + 12, sy - 28, COL.ink);
+      pill(c, off.toFixed(0) + "° off axis", (sx + ex) / 2 + 30, (sy + ey) / 2 - 22, off > 3 ? COL.pressure : COL.good, "center");
+      pill(c, "Where the highs go (15 kHz)", 12, 22, COL.accent);
+    }
+    const P = prep($("am-plot")), fr = freqFrame(P, 100, 20000, -15, 6, "Level (dB)", [-15,-12,-9,-6,-3,0,3], [100,200,500,1000,2000,5000,10000,20000]);
+    const cl = p => [p[0], clampv(p[1], -16, 7)];
+    fr.clip(); P.c.fillStyle = "rgba(0,255,136,.14)"; P.c.beginPath(); P.c.moveTo(fr.X(100), fr.Y(0));
+    pts.forEach(p => P.c.lineTo(fr.X(p[0]), fr.Y(cl(p)[1]))); P.c.lineTo(fr.X(20000), fr.Y(0)); P.c.closePath(); P.c.fill();
+    curve(P.c, fr, [[100, 0], [20000, 0]], COL.ink, 2.5);
+    if (ghost) curve(P.c, fr, ghost.map(cl), "rgba(154,161,173,.75)", 1.8, [5, 5]);
+    curve(P.c, fr, pts.map(cl), COL.accent, this.vert ? 2.6 : 3.5); P.c.restore();
+    if (!this.vert && off > 4) pill(P.c, "Highs you lose", fr.X(9000), fr.Y(clampv(db(twoWay(9000, th)), -14, 0) / 2) + 2, COL.accent, "center");
+    if (this.vert) { const xo = fs.filter(f => f > 1500 && f < 4000).map(f => [f, sideResp(f, D, ht, tl, false)]).sort((a, b) => a[1] - b[1])[0];
+      if (xo[1] < -1.5) pill(P.c, "Crossover", fr.X(xo[0]), fr.Y(Math.max(xo[1], -14)) + 26, COL.muted, "center"); }
+  },
+  setView(v) { this.vert = v; $("am-h").setAttribute("aria-pressed", String(!v)); $("am-v").setAttribute("aria-pressed", String(v));
+    $("am-hctl").style.display = v ? "none" : "flex"; $("am-vctl").style.display = v ? "flex" : "none"; this.draw(); },
+  setDesk(on) { this.desk = on; $("am-dk").setAttribute("aria-pressed", String(on)); $("am-nd").setAttribute("aria-pressed", String(!on)); this.draw(); },
+  init() {
+    $("am-h").onclick = () => this.setView(false); $("am-v").onclick = () => this.setView(true);
+    $("am-dk").onclick = () => this.setDesk(true); $("am-nd").onclick = () => this.setDesk(false);
+    document.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { $("am-t").value = b.dataset.t; syncOutputs($("main")); this.draw(); });
+    document.querySelectorAll("[data-h]").forEach(b => b.onclick = () => { $("am-ht").value = b.dataset.h; $("am-tl").value = b.dataset.tl; syncOutputs($("main")); this.draw(); });
+    this.setDesk(false); this.setView(this.vert);
+  }
+});
+
+// ===== 3. Room modes =====
+DEMOS.push({
+  id: "modes", title: "Room modes and room dimensions",
+  src: "Mode frequencies and pressure patterns: D. Russell, Penn State · rectangular room with hard walls",
+  sel: { i: 1, j: 0, k: 0 }, view: "plan",
+  html: () => `<div class="controls">
+      ${slider("rm-l", "Length", 6, 30, .5, 13, "ft")}
+      ${slider("rm-w", "Width", 6, 30, .5, 11, "ft")}
+      ${slider("rm-h", "Height", 6, 16, .5, 8.5, "ft")}
+      <div class="ctl"><span class="lab">Show modes</span><div class="checks" id="rm-show">
+        <label><input type="checkbox" value="L" checked><span class="sw" style="background:#ff7a6b"></span>Length</label>
+        <label><input type="checkbox" value="W" checked><span class="sw" style="background:#00FF88"></span>Width</label>
+        <label><input type="checkbox" value="H" checked><span class="sw" style="background:#4cc9f0"></span>Height</label>
+        <label><input type="checkbox" value="X"><span class="sw" style="background:#a3a3a3"></span>Combined</label></div></div>
+      <div class="ctl"><span class="lab">Presets</span><div class="btnrow"><button class="btn" data-ms="L">Length only</button><button class="btn" data-ms="W">Width only</button><button class="btn" data-ms="H">Height only</button><button class="btn" data-ms="L,W,H">All three</button><button class="btn" data-ms="L,W,H,X">Every mode</button><button class="btn" data-sq="1">Square room</button></div></div>
+      <div class="ctl"><label for="rm-pick">Selected mode</label><select id="rm-pick"></select></div>
+      <div class="ctl"><span class="lab">View</span><div class="btnrow"><button class="btn" id="rm-vp" aria-pressed="true">From above</button><button class="btn" id="rm-vs" aria-pressed="false">From the side</button></div></div>
+    </div>
+    <div class="readout">${stat("rm-sel","Selected mode")}${stat("rm-wl","Wavelength")}${stat("rm-half","Half a wavelength")}</div>
+    <div class="card"><h2>Every mode below 200 Hz (click one)</h2><canvas id="rm-strip" class="short click"></canvas></div>
+    <div class="card grow"><h2 id="rm-maptitle">Loud and quiet spots</h2><div class="legend"><span><i style="background:var(--pressure)"></i>Loud</span><span><i style="background:#303030;border:1px solid #555"></i>Quiet</span><span><i style="background:var(--velocity)"></i>You, 38% of the length</span><span><i style="background:var(--ink)"></i>Speakers</span></div><canvas id="rm-map" class="tall"></canvas></div>`,
+  dims() { return { L: num("rm-l") * FT, W: num("rm-w") * FT, H: num("rm-h") * FT }; },
+  modes() {
+    const { L, W, H } = this.dims(), show = new Set([...document.querySelectorAll("#rm-show input:checked")].map(i => i.value)), out = [];
+    for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) for (let k = 0; k < 8; k++) {
+      if (!i && !j && !k) continue; const type = (i > 0) + (j > 0) + (k > 0);
+      const cat = type > 1 ? "X" : i ? "L" : j ? "W" : "H"; if (!show.has(cat)) continue;
+      const f = C / 2 * Math.sqrt((i / L) ** 2 + (j / W) ** 2 + (k / H) ** 2); if (f <= 200) out.push({ f, i, j, k, type, cat });
+    }
+    return out.sort((a, b) => a.f - b.f);
+  },
+  name(m) { return m.type === 1 ? (m.i ? "L" + m.i : m.j ? "W" + m.j : "H" + m.k) : [m.i ? "L" + m.i : "", m.j ? "W" + m.j : "", m.k ? "H" + m.k : ""].filter(Boolean).join(" "); },
+  fillPick() {
+    const ms = this.ms = this.modes(), p = $("rm-pick"), s = this.sel;
+    if (!ms.find(m => m.i === s.i && m.j === s.j && m.k === s.k) && ms.length) this.sel = { i: ms[0].i, j: ms[0].j, k: ms[0].k };
+    p.innerHTML = ms.map((m, n) => `<option value="${n}"${m.i === this.sel.i && m.j === this.sel.j && m.k === this.sel.k ? " selected" : ""}>${this.name(m)} · ${m.f.toFixed(0)} Hz</option>`).join("");
+  },
+  draw() {
+    this.fillPick();
+    const { L, W, H } = this.dims(), { i: nl, j: nw, k: nh } = this.sel, ms = this.ms;
+    const COLS = { L: COL.pressure, W: COL.accent, H: COL.velocity, X: COL.muted };
+    const has = ms.length > 0, f = has ? C / 2 * Math.sqrt((nl / L) ** 2 + (nw / W) ** 2 + (nh / H) ** 2) : 0;
+    $("rm-sel").innerHTML = has ? this.name(this.sel).replace(/ /g, " + ") + " <small>" + f.toFixed(1) + " Hz</small>" : "–";
+    $("rm-wl").innerHTML = has ? (C / f / FT).toFixed(1) + " <small>ft</small>" : "–";
+    const zEar = EAR * IN;
+    $("rm-half").innerHTML = has ? (C / f / 2 / FT).toFixed(1) + " <small>ft</small>" : "–";
+    // strip
+    const S = prep($("rm-strip")), c = S.c, fr = freqFrame(S, 20, 200, 0, 1.25, "", [], [20,30,40,50,60,80,100,150,200]); this.fr = fr;
+    ms.slice().sort((a, b) => b.type - a.type).forEach(m => {
+      const x = fr.X(m.f), top = fr.Y(m.type === 1 ? .85 : .5), isSel = m.i === nl && m.j === nw && m.k === nh;
+      c.strokeStyle = isSel ? COL.ink : COLS[m.cat]; c.lineWidth = isSel ? 6 : m.type === 1 ? 4 : 2;
+      c.beginPath(); c.moveTo(x, fr.Y(0)); c.lineTo(x, top); c.stroke();
+    });
+    let lastX = -99, row = 0;
+    ms.filter(m => m.type === 1).forEach(m => { const x = fr.X(m.f); row = x - lastX < 34 ? (row + 1) % 2 : 0; lastX = x;
+      c.fillStyle = COLS[m.cat]; c.textAlign = "center"; c.font = FONTB; c.fillText(this.name(m), x, fr.Y(.93) - row * 17); c.font = FONT; });
+    const cats = [...document.querySelectorAll("#rm-show input:checked")].map(i => i.value);
+    if (cats.length === 1 && cats[0] !== "X") { const D = cats[0] === "L" ? L : cats[0] === "W" ? W : H, nm = { L: "Length", W: "Width", H: "Height" }[cats[0]];
+      pill(c, nm + " modes repeat every " + (C / (2 * D)).toFixed(1) + " Hz", fr.L + 6, fr.T + 6, COLS[cats[0]]); }
+    if (!has) pill(c, "Turn on at least one kind of mode", S.w / 2, S.h / 2, COL.ink, "center");
+    // map
+    const M = prep($("rm-map")), g = M.c, side = this.view === "side";
+    $("rm-maptitle").textContent = side ? "Loud and quiet spots, seen from the side" : "Loud and quiet spots, seen from above";
+    const A = L, Bd = side ? H : W, pad = 40, availW = M.w - 2 * pad, availH = M.h - 2 * pad - 20, s = Math.min(availW / A, availH / Bd);
+    const rw = A * s, rh = Bd * s, x0 = (M.w - rw) / 2, y0 = pad + (availH - rh) / 2;
+    const cells = 150, rows = Math.max(8, Math.round(cells * Bd / A)), cw = rw / cells, chh = rh / rows;
+    const extra = side ? Math.abs(Math.cos(nw * Math.PI * 0.5)) : Math.abs(Math.cos(nh * Math.PI * zEar / H));
+    for (let a = 0; a < cells; a++) for (let b = 0; b < rows; b++) {
+      const u = (a + .5) / cells, v = (b + .5) / rows;
+      const val = has ? Math.abs(Math.cos(nl * Math.PI * u) * Math.cos((side ? nh : nw) * Math.PI * (side ? 1 - v : v))) * extra : 0;
+      g.fillStyle = `rgb(${Math.round(42 + 213 * val)},${Math.round(46 + 76 * val)},${Math.round(55 + 52 * val)})`; g.fillRect(x0 + a * cw, y0 + b * chh, cw + .6, chh + .6);
+    }
+    g.strokeStyle = "#929292"; g.lineWidth = 4; g.strokeRect(x0, y0, rw, rh);
+    g.fillStyle = COL.muted; g.textAlign = "left"; g.fillText("Front wall", x0, y0 + rh + 20); g.textAlign = "right"; g.fillText("Back wall", x0 + rw, y0 + rh + 20);
+    g.textAlign = "center"; g.fillText("Length " + num("rm-l") + " ft", x0 + rw / 2, y0 - 16);
+    g.save(); g.translate(x0 - 18, y0 + rh / 2); g.rotate(-Math.PI / 2); g.fillText((side ? "Height " + num("rm-h") : "Width " + num("rm-w")) + " ft", 0, 0); g.restore();
+    const lx = x0 + 0.38 * rw;
+    g.strokeStyle = "rgba(76,201,240,.6)"; g.setLineDash([5, 5]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(lx, y0); g.lineTo(lx, y0 + rh); g.stroke(); g.setLineDash([]);
+    if (!side) {
+      const ly = y0 + rh / 2, sx = x0 + Math.max(0.08 * rw, 26);
+      [[sx, ly - rh * 0.2], [sx, ly + rh * 0.2]].forEach(([x, y]) => speakerTop(g, x, y, Math.atan2(ly - y, lx - x), 22));
+      personIcon(g, lx, ly, 11);
+    } else {
+      const eY = y0 + rh * (1 - zEar / H), tY = eY, sx = x0 + Math.max(0.08 * rw, 26);
+      g.fillStyle = "#747474"; g.fillRect(sx - 3, tY + 10, 6, y0 + rh - tY - 10);
+      g.fillStyle = COL.ink; g.fillRect(sx - 9, tY - 8, 18, 24); g.fillStyle = COL.bg; g.beginPath(); g.arc(sx + 6, tY - 2, 3, 0, 7); g.fill();
+      g.strokeStyle = COL.velocity; g.lineWidth = 5; g.lineCap = "round"; g.beginPath(); g.moveTo(lx, eY + 12); g.lineTo(lx, Math.min(eY + 40, y0 + rh - 4)); g.stroke(); g.lineCap = "butt";
+      personIcon(g, lx, eY, 10);
+    }
+    pill(g, "38%", lx - 22, y0 + 16, COL.velocity);
+    if (has && extra < 0.12) pill(g, side ? "Quiet across the middle of the width" : "Quiet everywhere at ear height", x0 + rw / 2, y0 + rh / 2, COL.ink, "center");
+  },
+  init() {
+    $("rm-strip").onclick = e => {
+      const r = e.currentTarget.getBoundingClientRect(), x = e.clientX - r.left; let best = null, bd = 14;
+      (this.ms || []).forEach(m => { const d = Math.abs(this.fr.X(m.f) - x); if (d < bd) { bd = d; best = m; } });
+      if (best) { this.sel = { i: best.i, j: best.j, k: best.k }; this.draw(); }
+    };
+    $("rm-pick").onchange = () => { const m = this.ms[+$("rm-pick").value]; if (m) { this.sel = { i: m.i, j: m.j, k: m.k }; this.draw(); } };
+    document.querySelectorAll("#rm-show input").forEach(i => i.onchange = () => this.draw());
+    const setV = v => { this.view = v; $("rm-vp").setAttribute("aria-pressed", String(v === "plan")); $("rm-vs").setAttribute("aria-pressed", String(v === "side")); this.draw(); };
+    $("rm-vp").onclick = () => setV("plan"); $("rm-vs").onclick = () => setV("side");
+    // Presets pick the view that shows them: height modes from the side, everything else from above
+    document.querySelectorAll("[data-ms]").forEach(bt => bt.onclick = () => { const on = bt.dataset.ms.split(",");
+      document.querySelectorAll("#rm-show input").forEach(i => i.checked = on.includes(i.value));
+      const m = this.modes()[0]; if (m) this.sel = { i: m.i, j: m.j, k: m.k };
+      setV(on.length === 1 && on[0] === "H" ? "side" : "plan"); });
+    document.querySelectorAll("[data-sq]").forEach(bt => bt.onclick = () => { $("rm-l").value = 12; $("rm-w").value = 12; syncOutputs($("main"));
+      document.querySelectorAll("#rm-show input").forEach(i => i.checked = ["L", "W", "H"].includes(i.value));
+      this.sel = { i: 1, j: 0, k: 0 }; setV("plan"); });
+    setV(this.view);
+  }
+});
+
+// ===== 4. Speaker + listener position =====
+DEMOS.push({
+  id: "driving", title: "Speaker position, listening position, and the 38% guideline",
+  src: "Mode excitation: D. Russell, Penn State · 38% guideline: ARQEN, RealTraps, Kali Audio · length modes only",
+  html: () => `<div class="controls">
+      ${slider("dm-l", "Room length", 8, 30, .5, 13, "ft")}
+      ${slider("dm-s", "Speaker distance from front wall", 0, 1, .005, 0.01, "pct")}
+      ${slider("dm-x", "Your distance from front wall", 0, 1, .005, 0.5, "pct")}
+      <div class="ctl"><span class="lab">Speaker</span><div class="btnrow"><button class="btn" data-s="0.01">Against front wall</button><button class="btn" data-s="0.08">A bit out</button><button class="btn" data-s="0.2">Well out</button></div></div>
+      <div class="ctl"><span class="lab">Your seat</span><div class="btnrow"><button class="btn" data-x="0.5">Center</button><button class="btn" data-x="0.38">38%</button><button class="btn" data-x="0.25">25%</button><button class="btn" data-x="0.95">Back wall</button></div></div>
+    </div>
+    <div class="readout fixed-stats">${stat("dm-range","Missing at your seat")}${stat("dm-full","Full strength at your seat")}</div>
+    <div class="stage"><div class="card"><h2>First four length modes, side view</h2><div class="legend"><span><i style="background:var(--pressure)"></i>How strongly the speaker drives each mode</span><span><i class="dash" style="color:#a3a3a3"></i>Fully driven</span><span><i style="background:var(--velocity)"></i>You, and how much of each mode you hear</span></div><canvas id="dm-room" class="tall"></canvas></div></div>`,
+  draw() {
+    const L = num("dm-l") * FT, xs = num("dm-s"), xl = num("dm-x");
+    const G = prep($("dm-room")), c = G.c, l = 150, r = G.w - 18, rowH = (G.h - 96) / 4;
+    for (let n = 1; n <= 4; n++) {
+      const top = 14 + rowH * (n - 1), full = rowH * 0.72, base = top + rowH * 0.86, ps = Math.abs(Math.cos(n * Math.PI * xs)), amp = full * ps;
+      const pl = Math.abs(Math.cos(n * Math.PI * xl)), y1 = top + rowH * 0.22;
+      c.fillStyle = COL.ink; c.textAlign = "left"; c.font = FONTB; c.fillText("Mode " + n + " · " + Math.round(n * C / (2 * L)) + " Hz", 6, y1); c.font = FONT;
+      c.fillStyle = ps > 0.9 ? COL.pressure : COL.muted; c.fillText("Driven " + Math.round(ps * 100) + "%", 6, y1 + 19);
+      c.fillStyle = ps * pl < 0.1 ? COL.velocity : COL.muted; c.fillText("Heard " + Math.round(ps * pl * 100) + "%", 6, y1 + 38);
+      c.strokeStyle = "rgba(154,161,173,.5)"; c.setLineDash([4, 5]); c.lineWidth = 1.5; c.beginPath();
+      for (let i = 0; i <= 240; i++) { const x = l + (r - l) * i / 240, v = Math.abs(Math.cos(n * Math.PI * i / 240)); i ? c.lineTo(x, base - full * v) : c.moveTo(x, base - full * v); }
+      c.stroke(); c.setLineDash([]);
+      c.fillStyle = "rgba(255,122,107,.22)"; c.strokeStyle = COL.pressure; c.lineWidth = 2.5; c.beginPath(); c.moveTo(l, base);
+      for (let i = 0; i <= 240; i++) { const x = l + (r - l) * i / 240, v = Math.abs(Math.cos(n * Math.PI * i / 240)); c.lineTo(x, base - amp * v); }
+      c.lineTo(r, base); c.closePath(); c.fill(); c.stroke();
+      c.strokeStyle = COL.line; c.lineWidth = 1; c.beginPath(); c.moveTo(l, base); c.lineTo(r, base); c.stroke();
+      personIcon(c, l + (r - l) * xl, base - amp * Math.abs(Math.cos(n * Math.PI * xl)), 8);
+    }
+    const floorY = G.h - 56;
+    c.fillStyle = "#5d5d5d"; c.fillRect(l - 8, 10, 6, floorY - 4); c.fillRect(r + 2, 10, 6, floorY - 4);
+    c.strokeStyle = COL.line; c.lineWidth = 2; c.beginPath(); c.moveTo(l, floorY); c.lineTo(r, floorY); c.stroke();
+    speakerTop(c, l + (r - l) * xs + 12, floorY - 12, 0, 22);
+    c.fillStyle = COL.muted; c.textAlign = "center";
+    [[0,"front wall"],[.25,"25%"],[.5,"50%"],[.75,"75%"],[1,"back wall"]].filter(([p]) => Math.abs((p - xl) * (r - l)) > (p === 0 || p === 1 ? 90 : 62)).forEach(([p, t]) => { c.textAlign = p === 0 ? "left" : p === 1 ? "right" : "center"; c.fillText(t, l + (r - l) * p + (p === 0 ? -8 : p === 1 ? 8 : 0), floorY + 22); });
+    c.strokeStyle = "rgba(76,201,240,.55)"; c.setLineDash([4, 5]); c.lineWidth = 1.5; c.beginPath(); c.moveTo(l + (r - l) * xl, 10); c.lineTo(l + (r - l) * xl, floorY); c.stroke(); c.setLineDash([]);
+    pill(c, "You " + Math.round(xl * 100) + "%", l + (r - l) * xl, floorY + 22, COL.velocity, "center");
+    // Which of the first four modes never builds up at your seat (under 10% heard)
+    // and which ones hit full strength there (the peaks)
+    const lvl = n => Math.abs(Math.cos(n * Math.PI * xs) * Math.cos(n * Math.PI * xl));
+    const and = a => a.length < 2 ? String(a[0]) : a.slice(0, -1).join(", ") + " & " + a[a.length - 1];
+    const list = ns => ns.length ? (ns.length === 1 ? "Mode " : "Modes ") + and(ns) + " <small>" + ns.map(n => Math.round(n * C / (2 * L))).join(", ") + " Hz</small>" : "None <small>of the first four</small>";
+    $("dm-range").innerHTML = list([1, 2, 3, 4].filter(n => lvl(n) < 0.1));
+    $("dm-full").innerHTML = list([1, 2, 3, 4].filter(n => lvl(n) >= 0.9));
+  },
+  init() {
+    document.querySelectorAll("[data-x]").forEach(bt => bt.onclick = () => { $("dm-x").value = bt.dataset.x; syncOutputs($("main")); this.draw(); });
+    document.querySelectorAll("[data-s]").forEach(bt => bt.onclick = () => { $("dm-s").value = bt.dataset.s; syncOutputs($("main")); this.draw(); });
+  }
+});
+
+// ===== 5. Distance from the front wall =====
+DEMOS.push({
+  id: "sbir", title: "Speaker distance from the front wall",
+  src: "Front-wall cancellation: Genelec, measured from the front of the speaker to the wall · ARQEN, Sonarworks · speaker sends bass in every direction, then mostly forward above its baffle step (rule of thumb, falling 12 dB per octave) · you are 4 ft in front of the speaker",
+  html: () => `<div class="controls">
+      ${slider("sb-d", "Gap behind the speaker", 0, 6, .05, 0, "ft")}
+      ${slider("sb-k", "Cabinet depth", 6, 14, .5, 9, "in")}
+      ${slider("sb-b", "Cabinet width", 5, 14, .5, 8, "in")}
+      ${selectBox("sb-m", "Wall behind the speakers", [["drywall","Bare drywall"],["oc2","2 in fiberglass panel"],["oc4","4 in fiberglass panel"]], "drywall")}
+      <div class="ctl"><span class="lab">Presets</span><div class="btnrow"><button class="btn" data-d="0">Against the wall</button><button class="btn" data-d="1">1 ft out</button><button class="btn" data-d="2.5">2.5 ft out</button><button class="btn" data-d="5">5 ft out</button></div></div>
+    </div>
+    <div class="stage two"><div class="card"><h2>Top view</h2><canvas id="sb-geo" class="tall"></canvas></div>
+    <div class="card"><h2>Speaker plus front-wall reflection</h2><div class="legend"><span><i style="background:var(--accent)"></i>With the wall</span><span><i style="background:var(--ink)"></i>Speaker alone</span><span><i style="background:rgba(76,201,240,.35)"></i>Range where the speaker sends sound backward</span></div><canvas id="sb-plot" class="tall"></canvas></div></div>`,
+  fb() { return 115 / (num("sb-b") * IN); },
+  // The distance that matters runs from the wall to the front of the speaker, where the woofer is, so a cabinet pushed
+  // against the wall still leaves the woofer a cabinet depth away from it
+  dist() { return num("sb-d") * FT + num("sb-k") * IN; },
+  gain(f) { const d = this.dist(), r = 1.2; return (r / (r + 2 * d)) / (1 + (f / this.fb()) ** 2) * Math.sqrt(1 - alphaAt($("sb-m").value, f)); },
+  resp(f) { const d = this.dist(), g = this.gain(f), ph = 2 * Math.PI * f * (2 * d) / C; return db(Math.hypot(1 + g * Math.cos(ph), g * Math.sin(ph))); },
+  draw() {
+    const d = this.dist(), fn = C / (4 * d), fb = this.fb();
+    const depth = this.resp(fn);
+    // diagram
+    const G = prep($("sb-geo")), c = G.c, gFt = num("sb-d"), kFt = num("sb-k") / 12, wFt = num("sb-b") / 12, dFt = gFt + kFt, rFt = 4;
+    const s = Math.min((G.w - 120) / (dFt + rFt + 1), 90), wallX = 44, spX = wallX + dFt * s, lsX = Math.min(spX + rFt * s, G.w - 30), cy = G.h * 0.46;
+    c.fillStyle = "#5d5d5d"; c.fillRect(wallX - 10, 20, 10, G.h - 80);
+    if ($("sb-m").value !== "drywall") { c.fillStyle = MAT[$("sb-m").value].col; c.fillRect(wallX, cy - 60, $("sb-m").value === "oc4" ? 14 : 8, 120); }
+    c.fillStyle = COL.muted; c.save(); c.translate(wallX - 22, cy); c.rotate(-Math.PI / 2); c.textAlign = "center"; c.fillText("Front wall", 0, 0); c.restore();
+    // Cabinet drawn to scale: back at the gap, front (woofer) a cabinet depth further out
+    const bw = Math.max(wFt * s, 16), backX = wallX + gFt * s;
+    const yA = cy - bw / 2 - 18, yB = cy + bw / 2 + 18;
+    arrow(c, spX - 6, yA, wallX + 6, yA, COL.accent, 3);
+    arrow(c, wallX + 6, yB, lsX - 18, yB, COL.accent, 3);
+    pill(c, "Bass goes back too", Math.max((spX + wallX) / 2, 120), yA - 24, COL.accent, "center");
+    arrow(c, spX + 8, cy, lsX - 16, cy, COL.ink, 3);
+    c.fillStyle = COL.ink; c.fillRect(backX, cy - bw / 2, spX - backX, bw); c.fillStyle = COL.accent; c.fillRect(spX - 4, cy - bw / 2 + 2, 4, bw - 4);
+    personIcon(c, lsX, cy, 12);
+    c.fillStyle = COL.ink; c.textAlign = "center"; c.fillText("You", lsX, cy - 24);
+    const dy = G.h - 44; c.strokeStyle = COL.ink; c.lineWidth = 1.5; c.beginPath(); c.moveTo(wallX, dy); c.lineTo(spX, dy); c.moveTo(wallX, dy - 6); c.lineTo(wallX, dy + 6); c.moveTo(spX, dy - 6); c.lineTo(spX, dy + 6); c.stroke();
+    pill(c, "To the front: " + lenStr(d), (wallX + spX) / 2, dy - 22, COL.ink, "center");
+    // plot
+    const P = prep($("sb-plot")), fr = freqFrame(P, 20, 2000, -20, 10, "Level change (dB)", [-20,-10,0,10]);
+    fr.clip();
+    const grd = P.c.createLinearGradient(fr.X(fb), 0, fr.X(fb * 2.5), 0); grd.addColorStop(0, "rgba(76,201,240,.16)"); grd.addColorStop(1, "rgba(76,201,240,0)");
+    P.c.fillStyle = grd; P.c.fillRect(fr.L, fr.T, fr.X(Math.min(fb * 2.5, 2000)) - fr.L, P.h);
+    curve(P.c, fr, [[20, 0], [2000, 0]], COL.ink, 2);
+    curve(P.c, fr, logSpace(20, 2000, 900).map(f => [f, this.resp(f)]), COL.accent, 3); P.c.restore();
+    pill(P.c, "Boost", fr.X(28), fr.Y(this.resp(28)) - 22, COL.accent);
+    if (fn <= 2000) pill(P.c, "Cancellation " + Math.round(fn) + " Hz", fr.X(fn), fr.Y(depth) + 26, COL.pressure, fr.X(fn) > P.w - 160 ? "right" : "center");
+    pill(P.c, "Speaker mostly faces forward up here", P.w - fr.R - 6, fr.T + 14, COL.muted, "right");
+  },
+  init() { document.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { $("sb-d").value = b.dataset.d; syncOutputs($("main")); this.draw(); }); }
+});
+
+// ===== 6. Absorption =====
+DEMOS.push({
+  id: "absorb", title: "Absorption by material and thickness",
+  src: "Fiberglass: Owens Corning 700 Series data sheet (Type 703) · Foam: Auralex Studiofoam Wedges lab reports and Foam Factory 1 in Wedge report RAL-A11-151, Riverbank Acoustical Labs · Fiberglass and foam tested to ASTM C423, mounted directly on a hard surface · Room surfaces: Sengpielaudio absorption table",
+  html: () => `<div class="controls">
+      <div class="ctl"><span class="lab">Compare</span><div class="btnrow"><button class="btn" data-set="foamb1,foam1,oc1">1 in foams vs 1 in fiberglass</button><button class="btn" data-set="foam2,oc2">2 in foam vs 2 in fiberglass</button><button class="btn" data-set="oc1,oc2,oc3,oc4">Fiberglass by thickness</button><button class="btn" data-set="foamb1,foam1,foam2,foam4">Foam by thickness</button><button class="btn" data-set="drywall,carpet,woodfloor,plaster">Room surfaces</button></div></div>
+      <div class="ctl" style="min-width:100%"><span class="lab">Materials</span><div class="checks" id="ab-checks">${Object.entries(MAT).map(([k, v]) => `<label><input type="checkbox" value="${k}"${["oc1","oc2","oc3","oc4"].includes(k) ? " checked" : ""}><span class="sw" style="background:${v.col}"></span>${v.name}</label>`).join("")}</div></div>
+    </div>
+    <div class="card grow"><h2>Absorption coefficient by octave band</h2><canvas id="ab-plot" class="tall"></canvas></div>`,
+  sel() { return [...document.querySelectorAll("#ab-checks input:checked")].map(i => i.value); },
+  draw() {
+    const P = prep($("ab-plot")), c = P.c, L = 58, R = 230, T = 16, B = 58;
+    const X = i => L + (i + 0.5) * (P.w - L - R) / 6, Y = v => T + (1 - v / 1.3) * (P.h - T - B);
+    c.fillStyle = "rgba(154,161,173,.08)"; c.fillRect(L, Y(1.3), P.w - L - R, Y(1.0) - Y(1.3));
+    c.fillStyle = COL.muted; c.textAlign = "left"; c.fillText("Above 1.0: lab edge effect", L + 8, Y(1.1));
+    c.strokeStyle = COL.line; c.textAlign = "right";
+    [0, .2, .4, .6, .8, 1, 1.2].forEach(v => { c.lineWidth = v === 1 || v === 0 ? 2 : 1; c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(P.w - R, Y(v)); c.stroke(); c.fillStyle = COL.muted; c.fillText(v.toFixed(1), L - 8, Y(v)); });
+    c.fillStyle = COL.muted; c.textAlign = "left"; c.fillText("Absorbs everything", L + 8, Y(1) + 14); c.textAlign = "right"; c.fillText("Reflects everything", P.w - R - 8, Y(0) - 14);
+    BANDS.forEach((f, i) => { c.fillStyle = COL.ink; c.textAlign = "center"; c.font = FONTB; c.fillText(fmtHz(f) + " Hz", X(i), P.h - B + 18); c.font = FONT; }); c.fillStyle = COL.muted; c.textAlign = "center"; c.fillText("Octave band", (L + P.w - R) / 2, P.h - B + 40);
+    const sel = this.sel();
+    sel.forEach(k => { const m = MAT[k]; c.strokeStyle = m.col; c.fillStyle = m.col; c.lineWidth = 4; c.beginPath();
+      m.a.forEach((v, i) => i ? c.lineTo(X(i), Y(v)) : c.moveTo(X(i), Y(v))); c.stroke();
+      m.a.forEach((v, i) => { c.beginPath(); c.arc(X(i), Y(v), 5.5, 0, 7); c.fill(); }); });
+    // direct labels at the right end, spread so they don't overlap
+    const labs = sel.map(k => ({ k, y: Y(MAT[k].a[5]) })).sort((a, b) => a.y - b.y);
+    for (let n = 1; n < labs.length; n++) if (labs[n].y - labs[n - 1].y < 26) labs[n].y = labs[n - 1].y + 26;
+    labs.forEach(({ k, y }) => { const m = MAT[k]; c.strokeStyle = m.col; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X(5) + 8, Y(m.a[5])); c.lineTo(X(5) + 24, y); c.stroke(); pill(c, m.name, X(5) + 26, y, m.col); });
+  },
+  init() {
+    document.querySelectorAll("#ab-checks input").forEach(i => i.onchange = () => this.draw());
+    document.querySelectorAll("[data-set]").forEach(bt => bt.onclick = () => { const s = bt.dataset.set.split(","); document.querySelectorAll("#ab-checks input").forEach(i => i.checked = s.includes(i.value)); this.draw(); });
+  }
+});
+
+// ===== 7. Quarter wavelength =====
+const QSPAN = 8 * FT;
+function frac(x) { if (x >= 0.5) return x.toFixed(1) + " <small>wavelengths</small>"; const n = Math.round(1 / x); return "1/" + n + " <small>of a wavelength</small>"; }
+DEMOS.push({
+  id: "quarter", title: "Velocity absorbers and the quarter-wavelength rule",
+  src: "Sound bouncing straight back off a hard wall · particle animation style: D. Russell, Penn State · rules of thumb for porous absorbers, about 1/10 wavelength deep to be effective and about 1/4 wavelength for the most absorption: T. Cox, Sound On Sound, Choosing and Using Porous Absorbers · Siemens Simcenter, Sound Absorption · these are rules of thumb, and the lab data in the Absorption demo often looks better",
+  html: () => `<div class="controls">
+      ${slider("qw-f", "Frequency", 1.6, 3.6, "any", 2.2, "loghz")}
+      ${slider("qw-t", "Panel thickness", 1, 12, .5, 4, "in")}
+      ${slider("qw-g", "Air gap behind panel", 0, 12, .5, 0, "in")}
+      <div class="ctl"><span class="lab">Jump to</span><div class="btnrow"><button class="btn" id="qw-q">This panel's ¼ wavelength</button></div></div>
+      <div class="ctl"><span class="lab">Animation</span><div class="btnrow"><button class="btn" id="qw-anim" aria-pressed="true">Moving air on</button></div></div>
+    </div>
+    <div class="readout">${stat("qw-wl","Wavelength")}${stat("qw-dp","Panel reaches out")}${stat("qw-v","Air movement in the panel")}${stat("qw-lo","Absorbs nearly all down to")}${stat("qw-lo10","Still absorbs a lot down to")}</div>
+    <div class="card grow"><h2 id="qw-title">The first 8 ft in front of a hard wall</h2><div class="legend"><span><i style="background:var(--pressure)"></i>Squeezed or stretched air (stored energy)</span><span><i style="background:var(--velocity)"></i>Moving air (motion energy)</span><span><i class="dash" style="color:var(--pressure)"></i>Pressure swing</span><span><i style="background:var(--good)"></i>Porous panel</span></div><canvas id="qw-plot" class="tall"></canvas></div>`,
+  draw(tsec) {
+    const f = Math.pow(10, num("qw-f")), lam = C / f, k = 2 * Math.PI / lam, th = num("qw-t") * IN, gap = num("qw-g") * IN, depth = gap + th;
+    const fmtL = m => m / IN >= 24 ? (m / FT).toFixed(1) + " <small>ft</small>" : (m / IN).toFixed(1) + " <small>in</small>";
+    $("qw-wl").innerHTML = fmtL(lam); $("qw-dp").innerHTML = frac(depth / lam);
+    // Largest |sin(kx)| across the panel: 1 if a velocity peak (lambda/4 + n lambda/2) falls inside it, otherwise the larger edge
+    const nPk = Math.ceil((gap - lam / 4) / (lam / 2)), pkIn = lam / 4 + Math.max(nPk, 0) * lam / 2 <= depth;
+    const vmax = pkIn ? 1 : Math.max(Math.abs(Math.sin(k * gap)), Math.abs(Math.sin(k * depth)));
+    $("qw-v").innerHTML = Math.round(vmax * 100) + "<small>%</small>";
+    // Rules of thumb for porous absorbers: about 1/10 wavelength deep for significant absorption, 1/4 wavelength to absorb nearly all of it
+    $("qw-lo").innerHTML = Math.round(C / (4 * depth)) + " <small>Hz · ¼ wave</small>";
+    $("qw-lo10").innerHTML = Math.round(C / (10 * depth)) + " <small>Hz · 1/10 wave</small>";
+    const span = QSPAN;
+    const P = prep($("qw-plot")), c = P.c, L = 64, R = 20, T = 14, Bm = 44, X = x => L + x / span * (P.w - L - R);
+    const top = T, bot = P.h - Bm, gTop = top + (bot - top) * 0.5, Y = v => bot - v * (bot - gTop);
+    // panel
+    c.save(); c.beginPath(); c.rect(L, top - 2, P.w - L - R + 2, bot - top + 4); c.clip();
+    c.fillStyle = "rgba(0,255,136,.18)"; c.strokeStyle = COL.good; c.lineWidth = 2;
+    c.fillRect(X(gap), top, X(depth) - X(gap), bot - top); c.strokeRect(X(gap), top, X(depth) - X(gap), bot - top); c.restore();
+    // Air particles (after D. Russell's standing-wave animations). Each dot moves u = U sin(kx) sin(wt): none at the wall, most at a quarter wavelength.
+    // Color shows where the energy is right now: squeezed air (potential energy) ~ cos^2(kx) sin^2(wt), moving air (kinetic energy) ~ sin^2(kx) cos^2(wt).
+    const anim = $("qw-anim").getAttribute("aria-pressed") === "true", ph = anim ? (tsec || 0) * 2 * Math.PI * 0.4 : Math.PI / 2;
+    const fieldTop = top + 4, fieldBot = top + (bot - top) * 0.4, pxm = (P.w - L - R) / span, kpx = k / pxm, U = Math.min(16, 0.55 / kpx), st = Math.sin(ph), ct = Math.cos(ph);
+    if (!this.dots || this.dotsW !== P.w || this.dotsH !== fieldBot - fieldTop) {
+      let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647, gap = 12, out = [];
+      for (let y = fieldTop + 4; y < fieldBot - 2; y += gap) for (let x = L + 3; x < P.w - R - 2; x += gap) out.push([x + (rnd() - .5) * gap * .8, y + (rnd() - .5) * gap * .8]);
+      this.dots = out; this.dotsW = P.w; this.dotsH = fieldBot - fieldTop;
+    }
+    const buckets = new Map();
+    this.dots.forEach(([x0, y]) => { const xm = (x0 - L) / pxm, sk = Math.sin(k * xm), ck = Math.cos(k * xm);
+      const pe = Math.round(ck * ck * st * st * 5), ke = Math.round(sk * sk * ct * ct * 5), key = pe * 10 + ke;
+      let arr = buckets.get(key); if (!arr) buckets.set(key, arr = []); arr.push(x0 + U * sk * st, y); });
+    buckets.forEach((arr, key) => { const pe = Math.floor(key / 10) / 5, ke = (key % 10) / 5, base = 1 - Math.max(pe, ke);
+      const r = Math.round(120 * base + 255 * pe + 76 * ke * (1 - pe)), g = Math.round(126 * base + 122 * pe + 201 * ke * (1 - pe)), bl = Math.round(138 * base + 107 * pe + 240 * ke * (1 - pe));
+      c.fillStyle = `rgb(${Math.min(r, 255)},${Math.min(g, 255)},${Math.min(bl, 255)})`; c.beginPath();
+      for (let i = 0; i < arr.length; i += 2) { c.moveTo(arr[i] + 3, arr[i + 1]); c.arc(arr[i], arr[i + 1], 3, 0, 7); } c.fill(); });
+    const chainY = fieldBot;
+    pill(c, "Barely moves", X(0) + 8, fieldBot + 16, COL.muted);
+    // wall
+    c.fillStyle = "#747474"; c.fillRect(L - 16, top - 6, 16, bot - top + 12);
+    c.save(); c.translate(L - 26, (top + bot) / 2); c.rotate(-Math.PI / 2); c.fillStyle = COL.muted; c.textAlign = "center"; c.fillText("Hard wall", 0, 0); c.restore();
+    c.strokeStyle = COL.line; c.lineWidth = 1; c.beginPath(); c.moveTo(L, bot); c.lineTo(P.w - R, bot); c.stroke();
+    c.fillStyle = COL.muted; c.textAlign = "center";
+    for (let u = 0; u <= 8; u++) c.fillText(u + " ft", X(u * FT), bot + 16);
+    c.fillText("Distance from the wall", (L + P.w - R) / 2, P.h - 8);
+    const drawC = (fn, col, w, from, to, dash) => { c.strokeStyle = col; c.lineWidth = w; c.setLineDash(dash || []); c.beginPath(); for (let i = 0; i <= 800; i++) { const x = from + (to - from) * i / 800; const px = X(x), py = Y(fn(x)); i ? c.lineTo(px, py) : c.moveTo(px, py); } c.stroke(); c.setLineDash([]); };
+    drawC(x => Math.abs(Math.cos(k * x)), "rgba(255,122,107,.7)", 2, 0, span, [6, 6]);
+    // velocity curve, filled where the panel sits
+    c.fillStyle = "rgba(76,201,240,.28)"; c.beginPath(); c.moveTo(X(gap), Y(0));
+    for (let i = 0; i <= 200; i++) { const x = gap + Math.min(th, span - gap) * i / 200; c.lineTo(X(x), Y(Math.abs(Math.sin(k * x)))); } c.lineTo(X(Math.min(depth, span)), Y(0)); c.closePath(); c.fill();
+    drawC(x => Math.abs(Math.sin(k * x)), COL.velocity, 3.5, 0, span);
+    if (lam <= span) { const by = gTop - 18; c.strokeStyle = COL.ink; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X(0), by); c.lineTo(X(lam), by); c.moveTo(X(0), by - 6); c.lineTo(X(0), by + 6); c.moveTo(X(lam), by - 6); c.lineTo(X(lam), by + 6); c.stroke(); pill(c, "One wavelength", X(lam) + 8, by, COL.ink); }
+    const qx = X(lam / 4); if (lam / 4 <= span) { c.setLineDash([6, 6]); c.strokeStyle = COL.velocity; c.lineWidth = 1.5; c.beginPath(); c.moveTo(qx, gTop - 4); c.lineTo(qx, bot); c.stroke(); c.setLineDash([]);
+      pill(c, "¼ wavelength: most movement", Math.min(qx + 8, P.w - 250), Y(1) + 18, COL.velocity); }
+    else pill(c, "¼ wavelength is " + (lam / 4 / FT).toFixed(1) + " ft out", P.w - R - 6, Y(1) + 18, COL.velocity, "right");
+    if (gap > 0) pill(c, "Air gap", (X(0) + X(gap)) / 2, bot - 24, COL.ink, "center");
+    pill(c, "Panel", Math.min(X(depth) + 6, P.w - R - 70), top + 14, COL.good);
+  },
+  init() {
+    // Set the frequency so a quarter wavelength equals the panel plus any air gap behind it
+    $("qw-q").onclick = () => { const d = (num("qw-t") + num("qw-g")) * IN; $("qw-f").value = Math.log10(C / (4 * d)); syncOutputs($("main")); this.draw(); };
+    const bt = $("qw-anim");
+    bt.onclick = () => { const on = bt.getAttribute("aria-pressed") !== "true"; bt.setAttribute("aria-pressed", String(on)); bt.textContent = on ? "Moving air on" : "Moving air off"; this.draw(); };
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { bt.setAttribute("aria-pressed", "false"); bt.textContent = "Moving air off"; }
+    const loop = t => { if (current !== this) return; if (bt.getAttribute("aria-pressed") === "true") this.draw(t / 1000); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+});
+
+// ===== 8. Decay waterfall =====
+DEMOS.push({
+  id: "decay", title: "Room decay: waterfall",
+  src: "Decay time: Sabine formula, an estimate (in a small room the bass decay is really set by individual room modes) · absorption data as in the absorption demo · ceiling uses the wall material · room modes: rectangular room, 38% seat, ears 1.2 m high · mode bandwidth ≈ 2.2 ÷ RT60 · target: EBU Tech 3276, 0.25 × (room volume ÷ 100 m³)^⅓, kept between 0.2 and 0.4 s · panels: 2 × 4 ft rigid fiberglass (Owens Corning 703 data) mounted on the walls",
+  html: () => `<div class="controls">
+      ${slider("dc-l", "Length", 8, 30, .5, 14, "ft")}
+      ${slider("dc-w", "Width", 6, 24, .5, 11, "ft")}
+      ${slider("dc-h", "Height", 7, 14, .5, 8, "ft")}
+      ${selectBox("dc-walls", "Walls and ceiling", [["plaster","Concrete or plaster"],["drywall","Drywall on studs"]], "plaster")}
+      ${selectBox("dc-floor", "Floor", [["carpet","Carpet on concrete"],["woodfloor","Wood floor on joists"]], "woodfloor")}
+      ${slider("dc-n", "Panels, 2 × 4 ft each", 0, 24, 1, 0, "panels")}
+      ${selectBox("dc-t", "Panel thickness", [["oc1","1 in"],["oc2","2 in"],["oc4","4 in"]], "oc2")}
+      <div class="ctl"><span class="lab">Presets</span><div class="btnrow"><button class="btn" data-pn="0">Untreated</button><button class="btn" data-pn="4" data-pt="oc1">4 panels, 1 in</button><button class="btn" data-pn="16" data-pt="oc1">16 panels, 1 in</button><button class="btn" data-pn="4" data-pt="oc2">4 panels, 2 in</button><button class="btn" data-pn="16" data-pt="oc2">16 panels, 2 in</button><button class="btn" data-pn="4" data-pt="oc4">4 panels, 4 in</button><button class="btn" data-pn="16" data-pt="oc4">16 panels, 4 in</button></div></div>
+    </div>
+    <div class="readout">${stat("dc-lo","Estimated decay at 125 Hz")}${stat("dc-hi","Estimated decay at 2 kHz")}${stat("dc-ebu","EBU target for this room")}</div>
+    <div class="card grow"><h2 id="dc-title">Waterfall</h2><canvas id="dc-fall" class="tall"></canvas></div>`,
+  // n panels of 2 x 4 ft (8 sq ft each) on the walls, material m
+  rt(n, m) {
+    const L = num("dc-l"), W = num("dc-w"), H = num("dc-h"), V = L * W * H, walls = 2 * (L + W) * H, floor = L * W;
+    const area = Math.min(n * 8, walls);
+    return BANDS.map((f, i) => { const wm = MAT[$("dc-walls").value].a[i];
+      const a = (walls - area) * wm + floor * wm + floor * MAT[$("dc-floor").value].a[i] + area * Math.min(MAT[m].a[i], 1); return 0.049 * V / a; });
+  },
+  draw() {
+    const n = num("dc-n"), m = $("dc-t").value, tr = this.rt(n, m), Vm = num("dc-l") * num("dc-w") * num("dc-h") * FT ** 3;
+    $("dc-ebu").innerHTML = clampv(0.25 * Math.cbrt(Vm / 100), 0.2, 0.4).toFixed(2) + " <small>s</small>";
+    const fmtS = t => (t >= 1 ? t.toFixed(1) : t.toFixed(2)) + " <small>s</small>";
+    $("dc-lo").innerHTML = fmtS(tr[0]); $("dc-hi").innerHTML = fmtS(tr[4]);
+    const thick = { oc1: "1 in", oc2: "2 in", oc4: "4 in" }[m];
+    $("dc-title").textContent = n === 0 ? "Waterfall, untreated" : "Waterfall, " + n + (n === 1 ? " panel" : " panels") + ", " + thick + " thick";
+    document.querySelectorAll("[data-pn]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.pn === n && (n === 0 || b.dataset.pt === m))));
+    const rtAt = f => { if (f <= 125) return tr[0]; if (f >= 4000) return tr[5]; const x = Math.log2(f / 125), i = Math.floor(x), t = x - i; return tr[i] * (1 - t) + tr[i + 1] * t; };
+    // steady-state level at a 38% seat, from the room's modes below about 300 Hz
+    const L = num("dc-l") * FT, W = num("dc-w") * FT, H = num("dc-h") * FT, src = [0.08, 0.25, 1.2 / H], rcv = [0.38, 0.5, 1.2 / H];
+    const modes = []; for (let i = 0; i < 14; i++) for (let j = 0; j < 12; j++) for (let k = 0; k < 8; k++) {
+      const fn = C / 2 * Math.sqrt((i / L) ** 2 + (j / W) ** 2 + (k / H) ** 2); if (fn > 420) continue;
+      const e = (i ? 2 : 1) * (j ? 2 : 1) * (k ? 2 : 1);
+      const sh = Math.cos(i * Math.PI * src[0]) * Math.cos(j * Math.PI * src[1]) * Math.cos(k * Math.PI * src[2]) * Math.cos(i * Math.PI * rcv[0]) * Math.cos(j * Math.PI * rcv[1]) * Math.cos(k * Math.PI * rcv[2]);
+      modes.push([fn, e * sh]); }
+    const fs = logSpace(30, 8000, 260);
+    const modal = fs.map(f => { if (f > 450) return 0; const B = 2.2 / rtAt(f); let re = 0, im = 0;
+      modes.forEach(([fn, a]) => { const dr = fn * fn - f * f, di = f * B, den = dr * dr + di * di; re += a * dr / den; im -= a * di / den; });
+      return db(Math.hypot(re, im)); });
+    const refIdx = fs.map((f, i) => [f, i]).filter(([f]) => f > 150 && f < 300).map(p => modal[p[1]]).sort((a, b) => a - b);
+    const ref = refIdx[Math.floor(refIdx.length / 2)];
+    const lss = fs.map((f, i) => { const w = clampv((f - 250) / 200, 0, 1); return (1 - w) * clampv(modal[i] - ref, -25, 20); });
+    const P = prep($("dc-fall")), c = P.c, slices = 30, tmax = Math.max(...this.rt(0, m)) * 0.9;
+    const L0 = 90, R0 = 110, B0 = 46, dx = (P.w - L0 - R0) * 0.3 / slices, dy = (P.h - B0 - 30) * 0.5 / slices;
+    const pw = P.w - L0 - R0 - dx * slices, ph = (P.h - B0 - 30) - dy * slices;
+    const X = (f, s) => L0 + Math.log10(f / 30) / Math.log10(8000 / 30) * pw + s * dx, Y = (v, s) => P.h - B0 - (v + 50) / 70 * ph - s * dy;
+    for (let q = 0; q < slices; q++) {
+      const s = slices - 1 - q, t = tmax * q / (slices - 1), fade = 1 - q / slices;
+      c.beginPath(); c.moveTo(X(30, s), Y(-50, s));
+      fs.forEach((f, i) => c.lineTo(X(f, s), Y(clampv(lss[i] - 60 * t / rtAt(f), -50, 20), s)));
+      c.lineTo(X(8000, s), Y(-50, s)); c.closePath();
+      c.fillStyle = COL.bg; c.fill();
+      c.fillStyle = `rgba(0,255,136,${0.08 + 0.25 * fade})`; c.fill();
+      c.strokeStyle = q === 0 ? COL.accent : `rgba(0,255,136,${0.3 + 0.6 * fade})`; c.lineWidth = q === 0 ? 3 : 1.5; c.stroke();
+    }
+    c.fillStyle = COL.muted; c.textAlign = "center";
+    [30, 50, 100, 200, 500, 1000, 2000, 5000].forEach(f => c.fillText(fmtHz(f) + (f === 30 ? " Hz" : ""), X(f, 0), P.h - B0 + 16));
+    c.textAlign = "right"; c.fillText("0 dB at the start", X(30, slices - 1) - 8, Y(0, slices - 1));
+    c.fillText("Frequency", L0 + pw / 2, P.h - 10);
+    c.textAlign = "right"; [-20, -40].forEach(v => c.fillText(v + " dB", L0 - 8, Y(v, 0)));
+    c.strokeStyle = COL.muted; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X(8000, 0) + 6, Y(-50, 0)); c.lineTo(X(8000, slices - 1) + 6, Y(-50, slices - 1)); c.stroke();
+    c.textAlign = "left"; c.fillStyle = COL.muted;
+    for (let q = 0; q < slices; q += 6) { const s = slices - 1 - q, t = tmax * q / (slices - 1); c.fillText((t * 1000).toFixed(0) + " ms", X(8000, s) + 12, Y(-50, s)); }
+    c.textAlign = "left"; c.fillText("Time after the sound stops", X(8000, 0) + 12, Y(-50, 0) + 26);
+    if (n > 0 && tr[0] > 1.6 * tr[4]) pill(c, "Bass still ringing", X(70, slices - 1), Y(14, slices - 1) - 18, COL.accent, "center");
+  },
+  init() {
+    document.querySelectorAll("[data-pn]").forEach(b => b.onclick = () => { $("dc-n").value = b.dataset.pn; if (b.dataset.pt) $("dc-t").value = b.dataset.pt; syncOutputs($("main")); this.draw(); });
+  }
+});
+
+// ===== 9. Corner bass traps =====
+// Room 13 x 11 x 8.5 ft, rigid walls. Top view: x runs from the front wall (left) toward the back wall, y from the side wall (top) across the room.
+// The room view shows each mode's pressure, or all of the air movement (the same map for every absorber).
+const CR = { L: 13, W: 11, H: 8.5, IN: 1 / 12, T: 4 / 12 };
+CR.S0 = 1 + CR.T;   // front face of a 4 in panel across the corner, along the diagonal from the corner
+const CR_MODES = {
+  len: { name: "Length", ijk: [1, 0] },
+  wid: { name: "Width", ijk: [0, 1] },
+  lw:  { name: "Length + width", ijk: [1, 1] },
+  all: { name: "All modes up to 120 Hz", ijk: null }
+};
+const CR_DIAG = [Math.SQRT1_2, Math.SQRT1_2];
+const CR_SPOTS = {
+  flat:  { name: "Two panels flat on the walls", gap: 0, n: null },
+  gap:   { name: "Two panels with a 3 in air gap", gap: 3, n: null },
+  strad: { name: "One panel across the corner", n: CR_DIAG },
+  fill:  { name: "Filled corner trap", n: CR_DIAG },
+  soff:  { name: "Soffit trap", gap: 0, n: null },
+  soffg: { name: "Soffit trap with air gaps", gap: 4, n: null }
+};
+function crFreq(i, j, k) { return 343 / 2 * Math.sqrt((i / (CR.L * FT)) ** 2 + (j / (CR.W * FT)) ** 2 + ((k || 0) / (CR.H * FT)) ** 2); }
+// Pressure swing and air velocity (x, y components) of mode (i, j) at (x, y)
+function crField(m, x, y) {
+  const kx = m[0] * Math.PI / CR.L, ky = m[1] * Math.PI / CR.W, cx = Math.cos(kx * x), cy = Math.cos(ky * y);
+  return [cx * cy, kx * Math.sin(kx * x) * cy, ky * cx * Math.sin(ky * y)];
+}
+// Modes with horizontal motion up to 120 Hz, each scaled to the same room-average energy
+const crCache = {};
+function crModes(key) {
+  if (crCache[key]) return crCache[key];
+  const list = [];
+  if (key !== "all") list.push(CR_MODES[key].ijk.concat(0));
+  else for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) for (let k = 0; k < 6; k++) { if ((i || j) && crFreq(i, j, k) <= 120) list.push([i, j, k]); }
+  const avgs = list.map(m => { let p = 0, v = 0, n = 0; for (let a = 0; a < 65; a++) for (let b = 0; b < 55; b++) { const f = crField(m, (a + .5) / 65 * CR.L, (b + .5) / 55 * CR.W); p += f[0] * f[0]; v += f[1] * f[1] + f[2] * f[2]; n++; } return [p / n, v / n]; });
+  return crCache[key] = { list, avgs };
+}
+DEMOS.push({
+  id: "corner", title: "Bass traps: corners and air gaps",
+  srcLabel: "Setup", src: "13 × 11 × 8.5 ft room with hard walls · panels 2 ft wide, 4 in thick · soffit trap 17 in square (GIK Acoustics) · air gaps: 3 in behind the panels, 4 in each way behind the soffit",
+  mode: "len", spot: "flat", view: "p",
+  html: () => `<div class="controls">
+      <div class="ctl"><span class="lab">Room mode</span><div class="btnrow">${Object.entries(CR_MODES).map(([k, m]) => `<button class="btn" data-crm="${k}">${m.name}${m.ijk ? " · " + Math.round(crFreq(m.ijk[0], m.ijk[1], 0)) + " Hz" : ""}</button>`).join("")}</div></div>
+      <div class="ctl"><span class="lab">Color shows</span><div class="btnrow"><button class="btn" data-crv="p">Pressure</button><button class="btn" data-crv="v">Moving air</button></div></div>
+      <div class="ctl"><span class="lab">Animation</span><div class="btnrow"><button class="btn" id="cr-anim" aria-pressed="true">Moving air on</button></div></div>
+      <div class="ctl"><span class="lab">Treatment</span><div class="btnrow">${Object.entries(CR_SPOTS).map(([k, s]) => `<button class="btn" data-crs="${k}">${s.name}</button>`).join("")}</div></div>
+    </div>
+    <div class="stage" style="grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)"><div class="card"><h2>Top view of my room</h2><div class="legend" id="cr-key"></div><canvas id="cr-room" class="tall"></canvas></div>
+    <div class="card"><h2>Close-up of the front corner</h2><div class="legend" id="cr-key2"></div><canvas id="cr-zoom" class="tall"></canvas></div></div>`,
+  // Static color map of the visible area for the current mode, view and panel
+  map(rw, rh, sc) {
+    const nrm = null, key = [this.mode, this.view, rw, rh, Math.round(sc * 100)].join("|");   // every absorber gets the same map: all air movement
+    this.maps = this.maps || {}; if (this.maps[key]) return this.maps[key];
+    if (Object.keys(this.maps).length > 8) this.maps = {};
+    const st = crModes(this.mode), cell = 4, nx = Math.ceil(rw * sc / cell), ny = Math.ceil(rh * sc / cell), vals = [];
+    const val = (m, q, x, y, dir) => { const f = crField(m, x, y), zw = m[2] ? 0.5 : 1;
+      if (this.view === "p") return zw * f[0] * f[0] / st.avgs[q][0];
+      const v2 = dir ? (dir[0] * f[1] + dir[1] * f[2]) ** 2 : (f[1] * f[1] + f[2] * f[2]) / 2; return zw * v2 / st.avgs[q][1]; };
+    for (let b = 0; b < ny; b++) for (let a = 0; a < nx; a++) { const x = (a + .5) * cell / sc, y = (b + .5) * cell / sc; let s = 0;
+      st.list.forEach((m, q) => s += val(m, q, x, y, nrm)); vals.push(s); }
+    // Brightness is set against the whole room, so the close-up keeps the same scale
+    let mx = 0; for (let a = 0; a < 66; a++) for (let b = 0; b < 56; b++) { let s = 0; st.list.forEach((m, q) => s += val(m, q, a / 65 * CR.L, b / 55 * CR.W, nrm)); mx = Math.max(mx, s); }
+    const cv = document.createElement("canvas"), d = window.devicePixelRatio || 1; cv.width = Math.ceil(nx * cell * d); cv.height = Math.ceil(ny * cell * d);
+    const c = cv.getContext("2d"), col = this.view === "p" ? [255, 122, 107] : [76, 201, 240];
+    vals.forEach((s, n) => { const a = n % nx, b = Math.floor(n / nx), t = Math.pow(Math.min(s / mx, 1), 0.8);
+      c.fillStyle = `rgb(${Math.round(30 + (col[0] - 30) * t)},${Math.round(33 + (col[1] - 33) * t)},${Math.round(40 + (col[2] - 40) * t)})`;
+      c.fillRect(a * cell * d, b * cell * d, cell * d + 1, cell * d + 1); });
+    this.maps[key] = cv; return cv;
+  },
+  panelPath(c, X, Y, k) {
+    const s = CR_SPOTS[k], I = CR.IN, t = CR.T, r2 = Math.SQRT2; c.beginPath();
+    if (k === "flat" || k === "gap") { const g = s.gap * I;
+      c.rect(X(g), Y(g), X(g + 2) - X(g), Y(g + t) - Y(g));              // on the side wall
+      c.rect(X(g), Y(g + t), X(g + t) - X(g), Y(g + t + 2) - Y(g + t)); return; }  // on the front wall
+    if (k === "soff" || k === "soffg") { const g = s.gap * I; c.rect(X(g), Y(g), X(g + 17 * I) - X(g), Y(g + 17 * I) - Y(g)); return; }
+    const s1 = CR.S0 * r2, s0 = k === "fill" ? 0 : (CR.S0 - t) * r2;
+    c.moveTo(X(s1), Y(0)); c.lineTo(X(0), Y(s1)); c.lineTo(X(0), Y(s0)); if (s0 > 0) c.lineTo(X(s0), Y(0)); c.closePath();
+  },
+  draw(tsec) {
+    const key = (this.view === "p" ? `<span><i style="background:var(--pressure)"></i>Pressure swing (brighter = bigger)</span>` : `<span><i style="background:var(--velocity)"></i>Moving air (brighter = more)</span>`) + `<span><i style="background:var(--good)"></i>Porous absorber</span>`;
+    $("cr-key").innerHTML = key; $("cr-key2").innerHTML = key;
+    this.drawView($("cr-room"), false, tsec); this.drawView($("cr-zoom"), true, tsec);
+  },
+  drawView(cv, zoom, tsec) {
+    const m = CR_MODES[this.mode], sp = CR_SPOTS[this.spot];
+    const P = prep(cv), c = P.c, pad = 36, rw = zoom ? 4.5 : CR.L, rh = zoom ? 4.5 : CR.W;
+    const sc = Math.min((P.w - 2 * pad) / rw, (P.h - 2 * pad - 8) / rh), ox = (P.w - rw * sc) / 2, oy = pad + 6, X = x => ox + x * sc, Y = y => oy + y * sc;
+    c.drawImage(this.map(rw, rh, sc), X(0), Y(0), rw * sc, rh * sc);
+    c.save(); c.beginPath(); c.rect(X(0), Y(0), rw * sc, rh * sc); c.clip();
+    // Air particles move with the mode's velocity
+    const anim = $("cr-anim").getAttribute("aria-pressed") === "true", s1 = Math.sin(anim ? (tsec || 0) * 2 * Math.PI * 0.45 : Math.PI / 2);
+    if (m.ijk) {
+      const g = zoom ? 0.26 : 0.62, U = zoom ? 22 : 14, vm = Math.max(m.ijk[0] * Math.PI / CR.L, m.ijk[1] * Math.PI / CR.W), dk = zoom ? "z" : "r";
+      this.dots = this.dots || {};
+      if (!this.dots[dk]) { let seed = zoom ? 23 : 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647, out = [];
+        for (let y = g / 2; y < rh; y += g) for (let x = g / 2; x < rw; x += g) out.push([x + (rnd() - .5) * g * .7, y + (rnd() - .5) * g * .7]); this.dots[dk] = out; }
+      c.fillStyle = "rgba(238,240,243,.85)"; c.beginPath();
+      this.dots[dk].forEach(([x, y]) => { const f = crField(m.ijk, x, y), px = X(x) + U * s1 * f[1] / vm, py = Y(y) + U * s1 * f[2] / vm; c.moveTo(px + 2.6, py); c.arc(px, py, 2.6, 0, 7); });
+      c.fill();
+    }
+    this.panelPath(c, X, Y, this.spot); c.fillStyle = "rgba(0,255,136,.6)"; c.fill(); c.strokeStyle = COL.good; c.lineWidth = 2.5; c.stroke();
+    if (zoom) { c.font = FONTB; c.fillStyle = COL.ink; c.textAlign = "center";
+      if (this.spot === "strad") c.fillText("Air gap", X(0.42), Y(0.42));
+      else if (sp.gap) { const gm = sp.gap * CR.IN / 2; c.textAlign = "left"; c.fillText("Air gap", X(0.75), Y(gm)); c.save(); c.translate(X(gm), Y(0.75)); c.rotate(Math.PI / 2); c.fillText("Air gap", 0, 0); c.restore(); }
+      c.font = FONT; }
+    c.restore();
+    // walls (only the real ones in the close-up)
+    c.strokeStyle = "#a3a3a3"; c.lineWidth = 6;
+    if (zoom) { c.beginPath(); c.moveTo(X(rw), Y(0) - 3); c.lineTo(X(0) - 3, Y(0) - 3); c.lineTo(X(0) - 3, Y(rh)); c.stroke(); }
+    else { c.strokeRect(X(0) - 3, Y(0) - 3, CR.L * sc + 6, CR.W * sc + 6); c.strokeStyle = COL.accent; c.lineWidth = 2; c.setLineDash([6, 5]); c.strokeRect(X(0), Y(0), 4.5 * sc, 4.5 * sc); c.setLineDash([]); }
+    c.fillStyle = COL.muted; c.textAlign = "center";
+    c.save(); c.translate(X(0) - 18, Y(rh / 2)); c.rotate(-Math.PI / 2); c.fillText("Front wall", 0, 0); c.restore();
+    c.fillText(zoom ? "Side wall" : "Side wall · 13 ft", X(rw / 2), Y(0) - 18);
+    if (!zoom) { c.textAlign = "left"; c.fillText("11 ft", X(CR.L) + 12, Y(CR.W / 2)); }
+    else for (let f = 1; f <= 4; f++) c.fillText(f + " ft", X(f), Y(rh) + 16);
+    if (zoom) pill(c, sp.name, X(rw) - 8, Y(rh) - 20, COL.good, "right");
+    else if (!m.ijk) pill(c, "Average of every mode up to 120 Hz", X(rw) - 8, Y(rh) - 20, COL.ink, "right");
+    else if (this.view === "p") pill(c, "Most pressure in the corners", X(0) + 10, Y(rh) - 20, COL.pressure);
+    else pill(c, "The air barely moves in the corner", X(0) + 10, Y(rh) - 20, COL.velocity);
+  },
+  init() {
+    const group = (attr, val) => document.querySelectorAll(`[${attr}]`).forEach(b => b.setAttribute("aria-pressed", String(b.getAttribute(attr) === val)));
+    const setM = k => { this.mode = k; group("data-crm", k); this.draw(); };
+    const setV = k => { this.view = k; group("data-crv", k); this.draw(); };
+    const setS = k => { this.spot = k; group("data-crs", k); this.draw(); };
+    document.querySelectorAll("[data-crm]").forEach(b => b.onclick = () => setM(b.dataset.crm));
+    document.querySelectorAll("[data-crv]").forEach(b => b.onclick = () => setV(b.dataset.crv));
+    document.querySelectorAll("[data-crs]").forEach(b => b.onclick = () => setS(b.dataset.crs));
+    const bt = $("cr-anim");
+    bt.onclick = () => { const on = bt.getAttribute("aria-pressed") !== "true"; bt.setAttribute("aria-pressed", String(on)); bt.textContent = on ? "Moving air on" : "Moving air off"; this.draw(); };
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { bt.setAttribute("aria-pressed", "false"); bt.textContent = "Moving air off"; }
+    this.mode = "len"; this.view = "p"; this.maps = {}; this.dots = null;
+    group("data-crv", "p"); group("data-crm", "len"); setS("flat");
+    const loop = t => { if (current !== this) return; if (bt.getAttribute("aria-pressed") === "true") this.draw(t / 1000); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+});
+
+// ---------- router ----------
+const nav = $("nav"), mainEl = $("main"); let current = null;
+// Show order = the order the video discusses them
+const ORDER = ["aim", "sbir", "modes", "driving", "comb", "quarter", "absorb", "decay", "corner"];
+DEMOS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
+DEMOS.forEach((d, i) => { const a = document.createElement("a"); a.href = "#" + d.id; a.innerHTML = `<span class="n">${i + 1}</span><span>${d.title}</span>`; a.dataset.id = d.id; nav.insertBefore(a, nav.querySelector(".foot")); });
+function show() {
+  const id = (location.hash || "").slice(1), d = DEMOS.find(x => x.id === id) || DEMOS[0];
+  if (current && current !== d) audioStop();
+  current = d; loadCols();
+  nav.querySelectorAll("a").forEach(a => { if (a.dataset.id === d.id) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  mainEl.innerHTML = `<h1>${d.title}</h1>` + d.html() + `<p class="src"><b>${d.srcLabel || "Sources"}:</b> ${d.src}</p>`;
+  syncOutputs(mainEl);
+  mainEl.querySelectorAll("input[type=range], select").forEach(el => el.addEventListener("input", () => { syncOutputs(mainEl); d.draw(); }));
+  if (d.init) d.init();
+  d.draw();
+}
+window.addEventListener("hashchange", show);
+let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => current && current.draw(), 80); });
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input, select")) return;
+  const k = e.key.toLowerCase();
+  if (k === "p") { document.body.classList.toggle("present"); setTimeout(() => current.draw(), 30); }
+  else if (k === "f") { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); } catch (err) {} }
+  else if (k === "escape") { document.body.classList.remove("present"); setTimeout(() => current.draw(), 30); }
+  else if (/^[1-9]$/.test(k)) location.hash = DEMOS[+k - 1].id;
+});
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => current && current.draw());
+show();
+</script>
+</body>
+</html>
