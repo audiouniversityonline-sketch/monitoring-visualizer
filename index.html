@@ -80,41 +80,7 @@ body.present { grid-template-columns: 1fr; }
 @media (max-width: 900px) { body { display: block; height: auto; } html { height: auto; } nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); } nav .foot { display: none; } .stage.two { grid-template-columns: 1fr; } main { overflow: visible; height: auto; } main > .stage, main > .card.grow { flex: none; } .stage { grid-template-rows: auto; } .stage > .card { min-height: 0; } canvas { flex: none; height: 380px; } canvas.short { height: 220px; } }
 @media (max-height: 820px) and (min-width: 901px) { main { gap: 7px; padding: 10px 16px 8px; } h1 { font-size: 30px; } .controls { padding: 7px 10px; gap: 6px 16px; } .ctl { gap: 3px; } .stat { padding: 4px 10px; } .stat .v { font-size: 22px; } .stat .k { font-size: 12px; } .card { padding: 6px 10px; } .card h2 { font-size: 14px; margin-bottom: 3px; } .legend { font-size: 13px; margin-bottom: 3px; } .src { font-size: 11.5px; } canvas.short { height: 110px; } .btn { padding: 4px 9px; font-size: 13px; } input[type=range] { width: 150px; } .ctl { min-width: 120px; } body { grid-template-columns: 210px 1fr; } nav a { font-size: 13.5px; padding: 6px 8px; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
-html.embedded, html.embedded body { height: auto; }
-html.embedded body { height: var(--emb-h, 720px); }
-html.embedded main { height: var(--emb-h, 720px); }
-html.embedded nav { height: var(--emb-h, 720px); }
-@media (max-width: 900px) { html.embedded body, html.embedded main, html.embedded nav { height: auto; } }
 </style>
-<script>
-/* Embedded mode (e.g. a Circle page). Opened directly, nothing here runs and the page fills the window as it does for filming.
-   Inside an iframe the page cannot size itself to the window, because the parent sizes the window to the page. So the height
-   comes from the width instead, and the page reports its height to the parent so the iframe grows to fit with no inner scrollbar. */
-try {
-  if (window.self !== window.top) {
-    document.documentElement.classList.add("embedded");
-    var __mvSize = function () {
-      var fs = !!document.fullscreenElement;
-      var h = fs ? window.innerHeight : Math.round(Math.min(960, Math.max(640, window.innerWidth * 0.62)));
-      document.documentElement.style.setProperty("--emb-h", h + "px");
-    };
-    __mvSize();
-    var __mvPost = function () {
-      if (document.fullscreenElement) return;
-      var h = Math.ceil(document.body ? document.body.getBoundingClientRect().height : 0);
-      if (!h || h < 200) return;
-      try { window.parent.postMessage({ type: "mv:height", height: h }, "*"); } catch (e) {}
-    };
-    window.addEventListener("resize", function () { __mvSize(); __mvPost(); });
-    document.addEventListener("fullscreenchange", function () { __mvSize(); setTimeout(__mvPost, 120); });
-    window.addEventListener("load", function () {
-      __mvPost();
-      try { new ResizeObserver(__mvPost).observe(document.body); } catch (e) {}
-      setInterval(__mvPost, 1000);
-    });
-  }
-} catch (e) {}
-</script>
 </head>
 <body>
 <nav aria-label="Demos" id="nav">

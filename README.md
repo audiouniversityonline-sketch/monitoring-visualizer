@@ -18,14 +18,11 @@ Base URL: `https://audiouniversityonline-sketch.github.io/monitoring-visualizer/
 
 Embedded in an iframe on a members-only Circle page. The page itself is public to anyone with the URL. The paywall is the Circle access group on the page that embeds it, the same as the Troubleshooting Lab and Ear Training Lab.
 
-## Embedded mode
+## Circle embed
 
-When the page is inside an iframe it adds the `embedded` class to `<html>` and changes two things:
+Same pattern as the Troubleshooting Lab page. The Custom HTML block wraps the iframe in a div that breaks out of Circle's content column to the full browser width (`left:50%; width:100vw; margin-left:-50vw`), and the iframe is `88vh` tall so Circle's header stays visible. The visualizer fills whatever height it is given (the same layout used on camera), so every demo fits on one screen. Below 900 px wide the demos stack and scroll inside the frame.
 
-1. **Height comes from width.** Opened directly, the layout fills the window height (built to sit behind Kyle on camera at 1080p). In an iframe the parent sizes the window to the page, so that would loop. Embedded, the height is 62% of the width, clamped to 640 to 960 px. Below 900 px wide the demos stack vertically and the page is as tall as its content.
-2. **It reports its height to the parent** with `postMessage({ type: "mv:height", height })`. The script in `circle-embed-snippet.html` sizes the iframe to match, so there is never an inner scrollbar. This is the same pattern as the Ear Training Lab (`etl:height`).
-
-Fullscreen (F key) works inside the iframe because the embed sets `allow="fullscreen"`. In fullscreen the layout goes back to filling the screen.
+Fullscreen (F key) works inside the iframe because the embed sets `allow="fullscreen"`.
 
 ## Updating
 
